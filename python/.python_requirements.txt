@@ -1,0 +1,11 @@
+###########################
+### Python Requirements ###
+###########################
+beautifulsoup4
+boto3
+botocore
+botostubs
+GitPython
+pytest
+requests
+virtualenv
