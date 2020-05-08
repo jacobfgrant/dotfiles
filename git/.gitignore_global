@@ -1,0 +1,17 @@
+### Global .gitignore ###
+
+# macOS
+.DS_Store
+
+
+# Python
+__pycache__/
+*.py[cod]
+
+
+# Terraform
+.terraform/
+
+
+# VSCode
+.vscode/
