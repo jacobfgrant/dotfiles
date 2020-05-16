@@ -1,8 +1,12 @@
 ### Bash Aliases ###
 
-# General Aliases
-alias open="xdg-open"
+# PATH Variable
 
+export PATH=$PATH:/usr/local/go/bin
+
+# General Aliases
+alias celar="clear"
+alias open="xdg-open"
 
 # Git shortcuts
 alias gogit="cd $HOME/Dropbox/Git/ && ls"
