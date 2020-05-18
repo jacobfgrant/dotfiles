@@ -10,3 +10,4 @@ GitPython
 pytest
 requests
 virtualenv
+XlsxWriter
