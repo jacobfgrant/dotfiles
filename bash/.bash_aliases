@@ -12,3 +12,7 @@ alias open="xdg-open"
 alias gogit="cd $HOME/Dropbox/Git/ && ls"
 alias gpo="git push origin"
 alias gum="git checkout master && git pull upstream master"
+
+
+# Ansible shortcuts
+alias ansible-configure="sudo ansible-pull --url https://github.com/jacobfgrant/ansible-configure.git -i $(uname -n), main.yml"
