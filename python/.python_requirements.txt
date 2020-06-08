@@ -1,6 +1,7 @@
 ###########################
 ### Python Requirements ###
 ###########################
+ansible-lint
 beautifulsoup4
 boto3
 botocore
