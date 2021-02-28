@@ -18,5 +18,5 @@ alias gum="git checkout master && git pull upstream master"
 
 # Ansible Configure playbook shortcuts
 alias ansible-configure="sudo ansible-pull --url https://github.com/jacobfgrant/ansible-configure.git -i $(uname -n), main.yml"
-alias ansible-configure-basic="sudo ansible-pull --url https://github.com/jacobfgrant/ansible-configure.git -i $(uname -n), main.yml --skip-tags installs"
+alias ansible-configure-base="sudo ansible-pull --url https://github.com/jacobfgrant/ansible-configure.git -i $(uname -n), main.yml --skip-tags installs"
 alias ansible-configure-server="sudo ansible-pull --url https://github.com/jacobfgrant/ansible-configure.git -i $(uname -n), main.yml --skip-tags gui"
