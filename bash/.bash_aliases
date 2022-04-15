@@ -24,4 +24,4 @@ alias ansible-configure-server="sudo ansible-pull --url https://github.com/jacob
 
 # Terraform shortcuts
 alias tf="$(which terraform)"
-alias tfmt="find . -maxdepth 1 -type f -name '*.tf' | xargs -n 1 terraform fmt"
+alias tfmt="find . -maxdepth 1 -type f -name '*.tf' -o -type f -name '*.tfvars' | xargs -n 1 terraform fmt"
