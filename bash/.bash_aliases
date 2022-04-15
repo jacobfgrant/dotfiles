@@ -5,6 +5,12 @@
 export PATH=$PATH:/usr/local/go/bin
 
 
+# Bash Configuration
+
+HISTSIZE=20000
+HISTFILESIZE=20000
+
+
 # General Aliases
 alias celar="clear"
 alias open="xdg-open"
