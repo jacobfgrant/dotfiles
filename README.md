@@ -22,6 +22,7 @@
 - `.common_aliases.sh` – Common shell aliases used by bash, zsh, etc.
   - Aliases for [ansible-configure](https://github.com/jacobfgrant/ansible-configure)
   - General aliases
+  - Python aliases/functions
 
 
 ### git/
