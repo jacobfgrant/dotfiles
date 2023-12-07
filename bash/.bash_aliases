@@ -21,8 +21,3 @@ HISTFILESIZE=20000
 alias gogit="cd $HOME/Dropbox/Git/ && ls"
 alias gpo="git push origin"
 alias gum="git checkout master && git pull upstream master"
-
-
-# Terraform shortcuts
-alias tf="$(which terraform)"
-alias tfmt="find . -maxdepth 1 -type f -name '*.tf' -o -type f -name '*.tfvars' | xargs -n 1 terraform fmt"

@@ -87,3 +87,15 @@ venv() {
         fi
     fi
 }
+
+
+# Terraform Aliases
+
+alias tf="terraform"
+alias tfi="terraform init"
+alias tfv="terraform validate"
+alias tfp="terraform plan"
+alias tfa="terraform apply"
+alias tfd="terrform destroy"
+alias tff="terraform fmt"
+alias tfmt="terraform fmt"
