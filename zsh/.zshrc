@@ -6,6 +6,16 @@
 [ -f ~/.common_aliases.sh ] && . ~/.common_aliases.sh
 
 
+
+# Google Cloud CLI Homebrew Autocomplete
+
+if command -v brew >/dev/null 2>&1
+then
+    source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
+    source "$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
+fi
+
+
 # ZSH Prompt
 
 PROMPT='%(?.%F{10}⏺.%F{9}⏺)%f %2~ $ '
