@@ -92,8 +92,8 @@ venv() {
 # SSH Keys
 
 update_authorized_keys() {
-    default_url="https://gist.githubusercontent.com/jacobfgrant/40328a116c7fa215e01af4c4a63a5059/raw/authorized_keys"
-    default_authorized_keys_file="$HOME/.ssh/authorized_keys"
+    url="https://gist.githubusercontent.com/jacobfgrant/40328a116c7fa215e01af4c4a63a5059/raw/authorized_keys"
+    authorized_keys_file="$HOME/.ssh/authorized_keys"
     backup=false
     overwrite=false
 
