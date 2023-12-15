@@ -89,6 +89,97 @@ venv() {
 }
 
 
+# SSH Keys
+
+update_authorized_keys() {
+    default_url="https://gist.githubusercontent.com/jacobfgrant/40328a116c7fa215e01af4c4a63a5059/raw/authorized_keys"
+    default_authorized_keys_file="$HOME/.ssh/authorized_keys"
+    backup=false
+    overwrite=false
+
+    while getopts ":u:a:bO" opt
+    do
+        case $opt in
+            u) url="$OPTARG"
+               ;;
+            a) authorized_keys_file="$OPTARG"
+               ;;
+            b) backup=true
+               ;;
+            O) overwrite=true
+               ;;
+            \?) echo "Invalid option -$OPTARG" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Validate URL format (basic validation)
+    if ! [[ $url =~ ^http[s]?:// ]]
+    then
+        echo "Invalid URL format: $url"
+        return 1
+    fi
+
+    # Create a backup if -b flag is set
+    if [ "$backup" = true ]
+    then
+        if [ -f "$authorized_keys_file" ]
+        then
+            cp "$authorized_keys_file" "${authorized_keys_file}.$(date +%s).bak" || {
+                echo "Failed to create backup of $authorized_keys_file"
+                return 1
+            }
+        else
+            echo "Warning: Authorized keys file does not exist; no backup created."
+        fi
+    fi
+
+    # Download the keys and handle errors
+    curl_output=$(curl -s "$url")
+    if [ $? -ne 0 ]
+    then
+        echo "Error downloading keys from $url"
+        return 1
+    fi
+
+    if [ "$overwrite" = true ]
+    then
+        echo "$curl_output" > "$authorized_keys_file" || {
+            echo "Error writing to $authorized_keys_file"
+            return 1
+        }
+    else
+        # Ensure authorized_keys file exists and is writable
+        if [ ! -f "$authorized_keys_file" ]
+        then
+            touch "$authorized_keys_file" || {
+                echo "Cannot create $authorized_keys_file. Check permissions."
+                return 1
+            }
+        elif [ ! -w "$authorized_keys_file" ]
+        then
+            echo "No write permission to $authorized_keys_file"
+            return 1
+        fi
+
+        echo "$curl_output" | while read -r key
+        do
+            if ! grep -qF "$key" "$authorized_keys_file"
+            then
+                echo "$key" >> "$authorized_keys_file" || {
+                    echo "Error writing to $authorized_keys_file"
+                    return 1
+                }
+            fi
+        done
+    fi
+
+    echo "Authorized keys updated successfully."
+}
+
+
+
 # Terraform Aliases
 
 alias tf="terraform"
