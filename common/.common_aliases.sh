@@ -126,10 +126,12 @@ update_authorized_keys() {
     then
         if [ -f "$authorized_keys_file" ]
         then
-            cp "$authorized_keys_file" "${authorized_keys_file}.$(date +%s).bak" || {
+            authorized_keys_backup_file="${authorized_keys_file}.$(date +%s).bak"
+            cp "$authorized_keys_file" "$authorized_keys_backup_file" || {
                 echo "Failed to create backup of $authorized_keys_file"
                 return 1
             }
+            echo "Authorized keys file backed up to $authorized_keys_backup_file"
         else
             echo "Warning: Authorized keys file does not exist; no backup created."
         fi
