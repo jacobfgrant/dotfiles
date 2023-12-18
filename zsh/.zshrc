@@ -11,9 +11,13 @@
 
 if command -v brew >/dev/null 2>&1
 then
-    source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
-    source "$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
+    GCLOUD_PATH="$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
+    GCLOUD_COMPLETION="$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
+
+    [[ -f "$GCLOUD_PATH" ]] && source "$GCLOUD_PATH"
+    [[ -f "$GCLOUD_COMPLETION" ]] && source "$GCLOUD_COMPLETION"
 fi
+
 
 
 # ZSH Prompt

@@ -27,5 +27,9 @@ alias gum="git checkout master && git pull upstream master"
 
 if command -v brew >/dev/null 2>&1
 then
-    source "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc"
+    GCLOUD_PATH="$(brew --prefix)/share/google-cloud-sdk/path.bash.inc"
+    GCLOUD_COMPLETION="$(brew --prefix)/share/google-cloud-sdk/completion.bash.inc"
+
+    [ -f "$GCLOUD_PATH" ] && source "$GCLOUD_PATH"
+    [ -f "$GCLOUD_COMPLETION" ] && source "$GCLOUD_COMPLETION"
 fi
