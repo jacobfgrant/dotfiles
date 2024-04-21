@@ -6,11 +6,6 @@
 [ -f ~/.common_aliases.sh ] && . ~/.common_aliases.sh
 
 
-# PATH Variable
-
-export PATH=$PATH:/usr/local/go/bin
-
-
 # Bash Configuration
 
 HISTSIZE=20000

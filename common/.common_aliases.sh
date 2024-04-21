@@ -5,6 +5,17 @@
 #
 
 
+## PATH Variable ##
+
+# /usr/local/go/bin
+if [ -d "/usr/local/go/bin" ]
+then
+    export PATH="$PATH:/usr/local/go/bin"
+fi
+
+
+## Aliases ##
+
 # Ansible Configure playbook shortcuts
 ANSIBLE_REPO_URL="https://github.com/jacobfgrant/ansible-configure.git"
 
