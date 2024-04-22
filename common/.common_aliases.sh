@@ -36,6 +36,13 @@ fi
 
 
 
+# Git shortcuts
+alias gogit="cd $HOME/Documents/Git/ && ls"
+alias gpo="git push origin"
+alias gum="git checkout master && git pull upstream master"
+
+
+
 # Python aliases/functions
 
 if ! command -v python &> /dev/null
