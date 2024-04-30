@@ -14,3 +14,31 @@
 
 [push]
     autoSetupRemote = true
+
+[format]
+    pretty = log-standard
+
+[pretty]
+    log-oneline = tformat:%C(auto)%h%C(reset)%C(auto)%d%C(reset) %s %C(italic 208)%ad%C(reset) %C(241)%aN%C(reset)
+
+    log-compact = format:%C(auto)%h%C(reset) %C(white)-%C(reset) %C(italic 208)%ad%C(reset) %C(italic cyan)(%ar)%C(reset)%C(auto)%d%C(reset)%n %C(white)⤷%C(reset) %s %C(241)- %aN <%aE>%C(reset)%n
+
+    log-standard = format:%C(auto)%h%C(reset)%C(auto)%d%C(reset)   %C(italic 239)[Parent: %p]%C(reset)%n%C(white)Author:%C(reset)   %aN %C(241)<%aE>%C(reset)%n          %C(italic 208)%ad%C(reset) %C(italic cyan)(%ar)%C(reset)%w(0,4,4)%n%n%C(bold)%s%C(reset)%n%n%-b%n%n%-N%n%n
+
+    log-full = format:%C(auto)%h%C(reset)%C(auto)%d%C(reset)   %C(italic 239)[Parent: %p] [Tree: %t]%C(reset)%n%C(white)Author:%C(reset)   %aN %C(241)<%aE>%C(reset)%n          %C(italic 208)%ad%C(reset) %C(italic cyan)(%ar)%C(reset)%n%C(white)Commit:%C(reset)   %cN %C(241)<%cE>%C(reset)   %C(italic 239)[GPG: %G?% GK]%C(reset)%n          %C(italic 208)%cd%C(reset) %C(italic cyan)(%cr)%C(reset)%w(0,4,4)%n%n%C(bold)%s%C(reset)%n%n%-b%n%n%-N%n%n
+
+
+[alias]
+    # log, current branch
+    lo = log    --graph --pretty=log-oneline    --date=human
+    lc = log    --graph --pretty=log-compact    --date=human
+    l = log     --graph --pretty=log-compact    --date=human
+    ls = log    --graph --pretty=log-standard   --date=human
+    lf = log    --graph --pretty=log-full
+
+    # log, all branches+tags on all remotes
+    loa = log   --graph --pretty=log-oneline    --date=human    --all
+    lca = log   --graph --pretty=log-compact    --date=human    --all
+    la = log    --graph --pretty=log-compact    --date=human    --all
+    lsa = log   --graph --pretty=log-standard   --date=human    --all
+    lfa = log   --graph --pretty=log-full                       --all
