@@ -1,12 +1,16 @@
 [user]
-	email = git@jacobfgrant.com
-	name = Jacob F. Grant
+    email = git@jacobfgrant.com
+    name = Jacob F. Grant
+
 [credential]
-	helper = cache --timeout=3600
+    helper = cache --timeout=3600
+
 [core]
-	editor = vim
-	excludesfile = ~/.gitignore_global
+    editor = vim
+    excludesfile = ~/.gitignore_global
+
 [init]
-	defaultBranch = master
+    defaultBranch = master
+
 [push]
-	autoSetupRemote = true
+    autoSetupRemote = true
