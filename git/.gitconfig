@@ -42,3 +42,121 @@
     la = log    --graph --pretty=log-compact    --date=human    --all
     lsa = log   --graph --pretty=log-standard   --date=human    --all
     lfa = log   --graph --pretty=log-full                       --all
+
+    # inspection
+    sh = show --stat --cc --summary --patch # show detailed info about commit
+    grep = grep -I                          # grep within tracked files in repo
+
+    # diff
+    d = diff -c                             # diff files
+    ds = diff --find-renames --stat --cc -c # diff file names
+    dc = diff --cached -c                   # diff cached (staged) files
+    dl = diff --cached -c HEAD~             # diff cached (staged) files with parent commit
+    du = diff --cached -c @{u}              # diff cached (staged) files with upstream branch
+
+    # status
+    s = status                              # show files/status
+    si = status --ignored                   # show ignored files
+    sa = status --ignored --untracked-files # show all ignored/untracked files
+
+    # index
+    a = add                     # add/stage files
+    aa = add --all              # add/stage ALL files
+    au = add --update           # add/stage already-tracked files
+    ai = add --interactive      # open interactive staging shell
+    ap = add --patch            # add/stage files by patch
+    an = add --intent-to-add    # track files, but don't stage contents
+    u = reset HEAD --           # unstage files
+    up = reset --patch HEAD --  # unstage files by patch
+
+    # commit
+    c = commit                      # commit staged changes
+    cf = commit --fixup             # commit and mark as fixup of another commit
+    cs = commit --squash            # commit and mark as squash of another commit
+    ca = commit --amend             # amend commit
+    can = commit --amend --no-edit  # amend commit without editing message
+
+    # checkout
+    co = checkout                   # checkout branch/commit
+    com = checkout master --        # checkout master branch
+    cod = checkout dev --           # checkout dev branch
+    cob = checkout -b               # checkout new branch
+    cop = checkout --patch HEAD --  # discard/restore changes by patch
+
+    # branch
+    b = branch              # list/create branches
+    bc = branch --contains  # list branches that contain commit
+    bd = branch --delete    # delete branch
+    bl = branch -vv         # list branch info
+    bla = branch --all -vv  # list ALL branch info
+
+    # tag
+    t = tag  			# list or create tags
+    tc = tag --contains	# list tags that contain a given commit
+    td = tag --delete	# deletes specified tag
+
+    # network (in)
+    cl = clone                                  # clones repo
+    p = pull                                    # pulls remote changes (fetch then merge)
+    f = fetch --tags                            # fetches remote tags
+    ff = fetch --force --prune --tags           # fetches remote tags and cleans up remote branches
+    fa = fetch --all --tags                     # fetches all remote tags
+    ffa = fetch --all --force --prune --tags    # fetches all remote tags and cleans up remote branches
+
+    # network (out)
+    pu = push                       # push local changes to remote
+    puf = push --force-with-lease   # force push only if no changes to remote
+
+    # submodule
+    sub = submodule                             # git submodules command
+    subu = submodule update --init --recursive  # update all submodules
+
+    # merge
+    m = merge               # merge specified branch into current branch
+    ma = merge --abort      # abort attempted merge
+    mc = merge --continue   # continue merge after all conflicts resolved
+    mff = merge --ff-only   # only merge if fast-forward merge is available
+    mnc = "!f() { git merge --no-commit --no-ff \"$@\"; EC=$?; git merge --abort; exit $EC; }; f" # tests if fast-forward merge is possible without making a commit/merge
+
+    # rebase
+    r = rebase                          # rebase current branch onto target branch
+    ra = rebase --abort                 # abort (cancel) current rebase and undo changes
+    rc = rebase --continue              # continue rebase after resolving conflicts
+    rq = rebase --quit                  # quit a rebase (do not undo changes)
+    rs = rebase --skip                  # skip (do not include) the current patch/commit of a rebase
+    ret = rebase --edit-todo            # open list of commits scheduled to be rebased
+    rsh = rebase --show-current-patch   # show the current patch of a rebase
+
+    # interactive rebase
+    ri = rebase --interactive           # interactive rebase
+    riu = rebase --interactive @{u}     # interactive rebase of the current branch's commits ahead of the upstream counterpart
+    rim = rebase --interactive master   # interactive rebase of the current branch's commits ahead of the master branch
+    rid = rebase --interactive dev      # interactive rebase of the current branch's commits ahead of the dev branch
+    rih = "!f() { git rebase --interactive HEAD~${1}; }; f" # interactive rebase of the last given number of commits from the HEAD
+
+    # cherry-pick
+    cp = cherry-pick                # apply specified commit(s) to current branch
+    cpa = cherry-pick --abort       # abort (cancel) cherry-pick and undo changes
+    cpc = cherry-pick --continue    # continue cherry-pick after resolving conflicts
+    cpq = cherry-pick --quit        # quit cherry-pick (do not undo changes)
+
+    # revert
+    rv = revert             # add commit undoing changes in the given commit(s)
+    rva = revert --abort    # abort (cancel) revert attempt and return to original state
+    rvc = revert --continue # continue revert attempt after resolving conflicts
+    rvq = revert --quit     # quite revert attempt (do not undo changes)
+
+    # reset
+    re = reset			# resets staging area to most recent commit, leaves working directory unchanged
+    res = reset --soft 	# moves HEAD to a given commit, leaves staging area/working directory unchanged
+    reh = reset --hard	# force resets staging area/working directory to match given commit
+
+    # w-commands
+    which = branch --all --contains                                                     # list all branches that contain a given commit
+    which-tag = describe --always --contains                                            # find nearest tag to a given commit
+    who = shortlog --summary --numbered --no-merges                                     # summarizes repo contributors
+    whoami = "!echo $(git config --get user.name) '<'$(git config --get user.email)'>'" # show git author/email info
+
+    # show authors and and commit counts
+    #    git thanks [<git-log-args>...]
+    thanks = "!f() { git log --pretty=tformat:'%aN <%aE>' \"$@\" | sort | uniq -c | sort -rn; }; f"
