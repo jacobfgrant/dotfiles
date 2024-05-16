@@ -20,6 +20,16 @@ fi
 
 
 
+# Terragrunt Autocomplete
+
+if command -v terragrunt >/dev/null 2>&1
+then
+    autoload -U +X bashcompinit && bashcompinit
+    complete -C "$(command -v terragrunt)" terragrunt
+fi
+
+
+
 # ZSH Prompt
 
 PROMPT='%(?.%F{10}⏺.%F{9}⏺)%f %2~ $ '

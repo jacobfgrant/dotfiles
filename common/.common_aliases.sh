@@ -118,3 +118,8 @@ alias tfd="terraform destroy"
 alias tff="terraform fmt"
 alias tfs="terraform state"
 alias tfw="terraform workspace"
+
+
+# Terragrunt Aliases
+
+alias tg="terragrunt"
