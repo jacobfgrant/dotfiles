@@ -91,7 +91,7 @@
     bla = branch --all -vv  # list ALL branch info
 
     # tag
-    t = tag  			# list or create tags
+    t = tag             # list or create tags
     tc = tag --contains	# list tags that contain a given commit
     td = tag --delete	# deletes specified tag
 
@@ -112,11 +112,11 @@
     subu = submodule update --init --recursive  # update all submodules
 
     # merge
-    m = merge               # merge specified branch into current branch
-    ma = merge --abort      # abort attempted merge
-    mc = merge --continue   # continue merge after all conflicts resolved
-    mff = merge --ff-only   # only merge if fast-forward merge is available
-    mnc = "!f() { git merge --no-commit --no-ff \"$@\"; EC=$?; git merge --abort; exit $EC; }; f" # tests if fast-forward merge is possible without making a commit/merge
+    m = merge                                                                                       # merge specified branch into current branch
+    ma = merge --abort                                                                              # abort attempted merge
+    mc = merge --continue                                                                           # continue merge after all conflicts resolved
+    mff = merge --ff-only                                                                           # only merge if fast-forward merge is available
+    mnc = "!f() { git merge --no-commit --no-ff \"$@\"; EC=$?; git merge --abort; exit $EC; }; f"   # tests if fast-forward merge is possible without making a commit/merge
 
     # rebase
     r = rebase                          # rebase current branch onto target branch
@@ -128,10 +128,10 @@
     rsh = rebase --show-current-patch   # show the current patch of a rebase
 
     # interactive rebase
-    ri = rebase --interactive           # interactive rebase
-    riu = rebase --interactive @{u}     # interactive rebase of the current branch's commits ahead of the upstream counterpart
-    rim = rebase --interactive master   # interactive rebase of the current branch's commits ahead of the master branch
-    rid = rebase --interactive dev      # interactive rebase of the current branch's commits ahead of the dev branch
+    ri = rebase --interactive                               # interactive rebase
+    riu = rebase --interactive @{u}                         # interactive rebase of the current branch's commits ahead of the upstream counterpart
+    rim = rebase --interactive master                       # interactive rebase of the current branch's commits ahead of the master branch
+    rid = rebase --interactive dev                          # interactive rebase of the current branch's commits ahead of the dev branch
     rih = "!f() { git rebase --interactive HEAD~${1}; }; f" # interactive rebase of the last given number of commits from the HEAD
 
     # cherry-pick
@@ -147,9 +147,9 @@
     rvq = revert --quit     # quite revert attempt (do not undo changes)
 
     # reset
-    re = reset			# resets staging area to most recent commit, leaves working directory unchanged
-    res = reset --soft 	# moves HEAD to a given commit, leaves staging area/working directory unchanged
-    reh = reset --hard	# force resets staging area/working directory to match given commit
+    re = reset          # resets staging area to most recent commit, leaves working directory unchanged
+    res = reset --soft  # moves HEAD to a given commit, leaves staging area/working directory unchanged
+    reh = reset --hard  # force resets staging area/working directory to match given commit
 
     # w-commands
     which = branch --all --contains                                                     # list all branches that contain a given commit
