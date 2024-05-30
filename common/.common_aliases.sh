@@ -29,6 +29,11 @@ alias ansible-configure-server="sudo ansible-pull --url $ANSIBLE_REPO_URL -i $(u
 
 alias celar="clear"
 
+alias h="history"
+
+alias l="ls -CF"
+alias la="ls -aCF"
+
 if command -v xdg-open >/dev/null 2>&1
 then
     alias open='xdg-open'
@@ -105,6 +110,28 @@ venv() {
         fi
     fi
 }
+
+
+# Sudo Aliases
+
+# Allows using sudo with other aliases
+alias sudo='sudo '
+
+
+# Systemd Aliases
+
+if command -v systemctl > /dev/null 2>&1
+then
+    alias stats="systemctl status"
+    alias starts="sudo systemctl start"
+    alias stops="sudo systemctl stop"
+    alias restarts="sudo systemctl restart"
+    alias reloads="sudo systemctl reload"
+    alias enables="sudo systemctl enable"
+    alias disables="sudo systemctl disable"
+    alias masks="sudo systemctl mask"
+    alias unmasks="sudo systemctl unmask"
+fi
 
 
 # Terraform Aliases
