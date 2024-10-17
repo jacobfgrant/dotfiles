@@ -14,6 +14,18 @@ then
 fi
 
 
+
+## GOPATH ##
+
+if [ -d "$HOME/Developer" ]
+then
+    export GOPATH="$HOME/Developer/go"
+else
+    export GOPATH="$HOME/.go"
+fi
+
+
+
 ## Aliases ##
 
 # Ansible Configure playbook shortcuts
