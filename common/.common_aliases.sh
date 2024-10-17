@@ -62,9 +62,10 @@ else
     alias gogit="cd $HOME/Documents/Git/ && ls"
 fi
 
-alias cdoc="cd $HOME/Documents"
-alias cdow="cd $HOME/Downloads"
 alias cdes="cd $HOME/Desktop"
+alias cdoc="cd $HOME/Documents"
+alias cdot="$HOME/.dotfiles"
+alias cdow="cd $HOME/Downloads"
 
 
 # Git shortcuts
