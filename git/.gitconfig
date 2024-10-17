@@ -71,6 +71,7 @@
 
     # commit
     c = commit                      # commit staged changes
+    cm = commit                     # commit staged changes with message
     cf = commit --fixup             # commit and mark as fixup of another commit
     cs = commit --squash            # commit and mark as squash of another commit
     ca = commit --amend             # amend commit
