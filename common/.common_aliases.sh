@@ -52,9 +52,23 @@ then
 fi
 
 
+# Navigation shortcuts
+
+if [ -d "$HOME/Developer" ]
+then
+    alias gogit="cd $HOME/Developer/Git/ && ls"
+    alias cdev="cd $HOME/Developer"
+else
+    alias gogit="cd $HOME/Documents/Git/ && ls"
+fi
+
+alias cdoc="cd $HOME/Documents"
+alias cdow="cd $HOME/Downloads"
+alias cdes="cd $HOME/Desktop"
+
 
 # Git shortcuts
-alias gogit="cd $HOME/Documents/Git/ && ls"
+
 alias gpo="git push origin"
 alias gum="git checkout master && git pull upstream master"
 
