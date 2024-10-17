@@ -64,7 +64,7 @@ fi
 
 alias cdes="cd $HOME/Desktop"
 alias cdoc="cd $HOME/Documents"
-alias cdot="$HOME/.dotfiles"
+alias cdot="cd $HOME/.dotfiles"
 alias cdow="cd $HOME/Downloads"
 
 
