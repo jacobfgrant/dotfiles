@@ -10,3 +10,6 @@ export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:";
 export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}";
 
 export HOMEBREW_NO_ENV_HINTS=1
+
+# Keep old (pre-BUSL) versions of terraform for now
+export HOMEBREW_NO_CLEANUP_FORMULAE=terraform
