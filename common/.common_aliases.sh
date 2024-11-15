@@ -139,6 +139,77 @@ venv() {
 }
 
 
+# Docker alias
+
+latex_compile() {
+    local container_name="latexcompiler"
+    local engine=(latexmk -pdf)  # Default to latexmk -pdf
+    local mode="run"
+    local OPTIND opt
+    
+    # Parse flags
+    while getopts "pxls" opt
+    do
+        case $opt in
+            p) engine=(pdflatex);;
+            x) engine=(latexmk -xelatex);;
+            l) engine=(latexmk -lualatex);;
+            s) mode="shell";;
+            *) return 1;;
+        esac
+    done
+    shift $((OPTIND-1))
+    
+    # Must have a file to compile
+    if [ $# -eq 0 ] && [ "$mode" != "shell" ]
+    then
+        echo "Usage: latex_compile [-p|-x|-l|-s] [file.tex]"
+        echo "  (no flag): latexmk -pdf (default)"
+        echo "  -p: pdflatex"
+        echo "  -x: latexmk -xelatex"
+        echo "  -l: latexmk -lualatex"
+        echo "  -s: open interactive shell in container"
+        return 1
+    fi
+    
+    # Check if container exists
+    if ! docker ps --all --format '{{.Names}}' | grep -q "^${container_name}$"
+    then
+        # Create (but don't run) a new container
+        docker create \
+            --name "${container_name}" \
+            -v /workdir \
+            texlive/texlive:latest \
+            tail -f /dev/null
+    fi
+
+    # Decide between running a command or opening a shell
+    if [ "$mode" = "shell" ]
+    then
+        # Interactive shell mode
+        docker run \
+            --rm -it \
+            --volumes-from "${container_name}" \
+            -v "$(pwd):/workdir" \
+            -w "/workdir" \
+            texlive/texlive:latest \
+            /bin/bash
+    else
+        # Normal command execution
+        docker run \
+            --rm \
+            --volumes-from "${container_name}" \
+            -v "$(pwd):/workdir" \
+            -w "/workdir" \
+            texlive/texlive:latest \
+            "${engine[@]}" "$@"
+    fi
+}
+
+# Alias for easier access
+alias ltx='latex_compile'
+
+
 # Sudo Aliases
 
 # Allows using sudo with other aliases
