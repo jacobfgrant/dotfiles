@@ -7,6 +7,22 @@
 
 
 
+# AWS CLI Homebrew Autocomplete
+
+if (( $+commands[brew] && $+commands[aws] ))
+then
+    AWS_ZSH_COMPLETER="$(brew --prefix)/share/zsh/site-functions/aws_zsh_completer.sh"
+
+    if [[ -f "$AWS_ZSH_COMPLETER" ]]
+    then
+        autoload -Uz compinit
+        compinit
+        source "$AWS_ZSH_COMPLETER"
+    fi
+fi
+
+
+
 # Google Cloud CLI Homebrew Autocomplete
 
 if command -v brew >/dev/null 2>&1
