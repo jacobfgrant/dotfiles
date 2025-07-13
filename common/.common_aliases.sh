@@ -40,6 +40,7 @@ alias ansible-configure-server="sudo ansible-pull --url $ANSIBLE_REPO_URL -i $(u
 # General Aliases
 
 alias celar="clear"
+alias cls="clear && ls -CF"
 
 alias h="history"
 
@@ -74,12 +75,48 @@ alias gpo="git push origin"
 alias gum="git checkout master && git pull upstream master"
 
 
+# Public Keys
+
+pubkey() {
+    local pubkeyfile="${1:-id_rsa.pub}"
+
+    # Append .pub if not present
+    case "$pubkeyfile" in
+        *.pub) ;;
+        *) pubkeyfile="$pubkeyfile.pub" ;;
+    esac
+
+    local fullpath="$HOME/.ssh/$pubkeyfile"
+
+    if [ ! -f "$fullpath" ]
+    then
+        echo "Key not found: $fullpath" >&2
+        return 1
+    fi
+
+    if command -v pbcopy >/dev/null 2>&1
+    then
+        tee >(pbcopy) < "$fullpath"
+    else
+        cat "$fullpath"
+    fi
+}
+
+
 
 # Python aliases/functions
 
+# python -> python3
 if ! command -v python &> /dev/null
 then
     alias python="python3"
+fi
+
+
+# pip -> pip3
+if ! command -v pip &> /dev/null
+then
+    alias pip="pip3"
 fi
 
 
@@ -232,19 +269,66 @@ then
 fi
 
 
+## Terraform ##
+
 # Terraform Aliases
 
-alias tf="terraform"
-alias tfi="terraform init"
-alias tfv="terraform validate"
-alias tfp="terraform plan"
-alias tfa="terraform apply"
-alias tfd="terraform destroy"
-alias tff="terraform fmt"
-alias tfs="terraform state"
-alias tfw="terraform workspace"
+if command -v terraform &> /dev/null
+then
+    alias tf="terraform"
+    alias tfi="terraform init"
+    alias tfiu="terraform init -upgrade"
+    alias tfv="terraform validate"
+    alias tfp="terraform plan"
+    alias tfa="terraform apply"
+    alias tfd="terraform destroy"
+    alias tfc="terraform console"
+    alias tff="terraform fmt"
+    alias tfg="terraform get"
+    alias tfm="terraform modules"
+    alias tfo="terraform output"
+    alias tfs="terraform state"
+    alias tfw="terraform workspace"
+fi
 
 
 # Terragrunt Aliases
 
-alias tg="terragrunt"
+if command -v terragrunt &> /dev/null
+then
+    alias tg="terragrunt"
+fi
+
+
+# Terrascan Aliases
+
+if command -v terrascan &> /dev/null
+then
+    alias ts="terrascan"
+    alias tss="terrascan scan -iac-type terraform"
+fi
+
+
+# Terralint Aliases
+
+if command -v tflint &> /dev/null
+then
+    alias tfl="tflint"
+    alias tfli="tflint -init"
+fi
+
+
+# Terraform Docs Aliases
+
+if command -v terraform-docs &> /dev/null
+then
+    alias tfdoc="terraform-docs"
+    alias tfdoca="terraform-docs asciidoc"
+    alias tfdocj="terraform-docs json"
+    alias tfdocm="terraform-docs markdown"
+    alias tfdocp="terraform-docs pretty"
+    alias tfdoct="terraform-docs toml"
+    alias tfdocv="terraform-docs tfvars"
+    alias tfdocx="terraform-docs xml"
+    alias tfdocy="terraform-docs yaml"
+fi
