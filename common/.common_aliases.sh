@@ -1,11 +1,19 @@
 ### Common Shell Aliases ###
 #
-#
 # Common aliases across shells (bash, zsh, etc.)
 #
+# Table of Contents:
+#   - ENVIRONMENT
+#   - TOOLS & SERVICES  
+#   - CORE ALIASES
+#   - PACKAGE MANAGERS
+#   - DEVELOPMENT TOOLS
+#   - UTILITIES
+#
 
+## ENVIRONMENT ##
 
-## PATH Variable ##
+# PATH Extensions #
 
 # /usr/local/go/bin
 if [ -d "/usr/local/go/bin" ]
@@ -14,8 +22,7 @@ then
 fi
 
 
-
-## GOPATH ##
+# Go Configuration #
 
 if [ -d "$HOME/Developer" ]
 then
@@ -25,10 +32,10 @@ else
 fi
 
 
+## TOOLS & SERVICES ##
 
-## Aliases ##
+# Ansible #
 
-# Ansible Configure playbook shortcuts
 ANSIBLE_REPO_URL="https://github.com/jacobfgrant/ansible-configure.git"
 
 alias ansible-configure="sudo ansible-pull --url $ANSIBLE_REPO_URL -i $(uname -n), main.yml"
@@ -36,24 +43,49 @@ alias ansible-configure-base="sudo ansible-pull --url $ANSIBLE_REPO_URL -i $(una
 alias ansible-configure-server="sudo ansible-pull --url $ANSIBLE_REPO_URL -i $(uname -n), main.yml --skip-tags gui"
 
 
+## CORE ALIASES ##
 
-# General Aliases
+# System & Navigation #
 
 alias celar="clear"
 alias cls="clear && ls -CF"
 
-alias h="history"
 
+alias h="history"
+alias hg="history | grep"
+
+
+# ls with color
+if command -v ls >/dev/null 2>&1
+then
+    if ls --color=auto >/dev/null 2>&1
+    then
+        alias ls="ls --color=auto"
+    fi
+fi
+
+
+# ls
 alias l="ls -CF"
 alias la="ls -aCF"
+alias ll="ls -lhF"
+alias lla="ls -lahF"
 
+
+# Grep with color
+alias grep="grep --color=auto"
+alias fgrep="fgrep --color=auto"
+alias egrep="egrep --color=auto"
+
+
+# Make "open" portable
 if command -v xdg-open >/dev/null 2>&1
 then
     alias open='xdg-open'
 fi
 
 
-# Navigation shortcuts
+# Directory Navigation #
 
 if [ -d "$HOME/Developer" ]
 then
@@ -69,42 +101,42 @@ alias cdot="cd $HOME/.dotfiles"
 alias cdow="cd $HOME/Downloads"
 
 
-# Git shortcuts
+# Git #
 
 alias gpo="git push origin"
 alias gum="git checkout master && git pull upstream master"
 
 
-# Public Keys
+## PACKAGE MANAGERS ##
 
-pubkey() {
-    local pubkeyfile="${1:-id_rsa.pub}"
+# Homebrew #
 
-    # Append .pub if not present
-    case "$pubkeyfile" in
-        *.pub) ;;
-        *) pubkeyfile="$pubkeyfile.pub" ;;
-    esac
-
-    local fullpath="$HOME/.ssh/$pubkeyfile"
-
-    if [ ! -f "$fullpath" ]
-    then
-        echo "Key not found: $fullpath" >&2
-        return 1
-    fi
-
-    if command -v pbcopy >/dev/null 2>&1
-    then
-        tee >(pbcopy) < "$fullpath"
-    else
-        cat "$fullpath"
-    fi
-}
+if command -v brew >/dev/null 2>&1
+then
+    alias brewup="brew update && brew upgrade"
+    alias brewc="brew cleanup"
+fi
 
 
+# APT #
 
-# Python aliases/functions
+if command -v apt-get >/dev/null 2>&1
+then
+    alias aptup="sudo apt-get update && sudo apt-get upgrade"
+    alias aptupd="sudo apt-get update && sudo apt-get dist-upgrade"
+    alias apti="sudo apt-get install"
+    alias aptui="sudo apt-get remove"
+    alias aptuia="sudo apt-get purge"
+    alias aptrm="sudo apt-get autoremove"
+    alias aptcl="sudo apt-get autoclean"
+    alias apts="apt-cache search"
+    alias aptsh="apt-cache show"
+fi
+
+
+## DEVELOPMENT TOOLS ##
+
+# Python #
 
 # python -> python3
 if ! command -v python &> /dev/null
@@ -120,6 +152,7 @@ then
 fi
 
 
+# venv
 venv() {
     local python_interpreter=python3
     local env_name
@@ -176,8 +209,132 @@ venv() {
 }
 
 
-# Docker alias
+# Terraform #
 
+if command -v terraform &> /dev/null
+then
+    alias tf="terraform"
+    alias tfi="terraform init"
+    alias tfiu="terraform init -upgrade"
+    alias tfv="terraform validate"
+    alias tfp="terraform plan"
+    alias tfa="terraform apply"
+    alias tfd="terraform destroy"
+    alias tfc="terraform console"
+    alias tff="terraform fmt"
+    alias tfg="terraform get"
+    alias tfm="terraform modules"
+    alias tfo="terraform output"
+    alias tfs="terraform state"
+    alias tfw="terraform workspace"
+fi
+
+
+# Terragrunt #
+
+if command -v terragrunt &> /dev/null
+then
+    alias tg="terragrunt"
+fi
+
+
+# Terrascan #
+
+if command -v terrascan &> /dev/null
+then
+    alias ts="terrascan"
+    alias tss="terrascan scan -iac-type terraform"
+fi
+
+
+# Terraform Lint #
+
+if command -v tflint &> /dev/null
+then
+    alias tfl="tflint"
+    alias tfli="tflint -init"
+fi
+
+
+# Terraform Docs #
+
+if command -v terraform-docs &> /dev/null
+then
+    alias tfdoc="terraform-docs"
+    alias tfdoca="terraform-docs asciidoc"
+    alias tfdocj="terraform-docs json"
+    alias tfdocm="terraform-docs markdown"
+    alias tfdocp="terraform-docs pretty"
+    alias tfdoct="terraform-docs toml"
+    alias tfdocv="terraform-docs tfvars"
+    alias tfdocx="terraform-docs xml"
+    alias tfdocy="terraform-docs yaml"
+fi
+
+
+# System Administration #
+
+# Allows using sudo with other aliases
+alias sudo='sudo '
+
+
+# systemd (systemctl)
+if command -v systemctl > /dev/null 2>&1
+then
+    alias sstatus="systemctl status"
+    alias sstart="sudo systemctl start"
+    alias sstop="sudo systemctl stop"
+    alias srestart="sudo systemctl restart"
+    alias sreload="sudo systemctl reload"
+    alias senable="sudo systemctl enable"
+    alias sdisable="sudo systemctl disable"
+    alias smask="sudo systemctl mask"
+    alias sunmask="sudo systemctl unmask"
+fi
+
+
+## UTILITIES ##
+
+# Archives (tar) #
+
+alias mktar="tar -cvf"
+alias untar="tar -xvf"
+alias mkgz="tar -czvf" 
+alias ungz="tar -xzvf"
+
+
+# SSH #
+
+# Get SSH public key
+pubkey() {
+    local pubkeyfile="${1:-id_rsa.pub}"
+
+    # Append .pub if not present
+    case "$pubkeyfile" in
+        *.pub) ;;
+        *) pubkeyfile="$pubkeyfile.pub" ;;
+    esac
+
+    local fullpath="$HOME/.ssh/$pubkeyfile"
+
+    if [ ! -f "$fullpath" ]
+    then
+        echo "Key not found: $fullpath" >&2
+        return 1
+    fi
+
+    if command -v pbcopy >/dev/null 2>&1
+    then
+        tee >(pbcopy) < "$fullpath"
+    else
+        cat "$fullpath"
+    fi
+}
+
+
+# LaTeX #
+
+# Compile LaTeX with Docker
 latex_compile() {
     local container_name="latexcompiler"
     local engine=(latexmk -pdf)  # Default to latexmk -pdf
@@ -243,92 +400,6 @@ latex_compile() {
     fi
 }
 
+
 # Alias for easier access
 alias ltx='latex_compile'
-
-
-# Sudo Aliases
-
-# Allows using sudo with other aliases
-alias sudo='sudo '
-
-
-# Systemd Aliases
-
-if command -v systemctl > /dev/null 2>&1
-then
-    alias stats="systemctl status"
-    alias starts="sudo systemctl start"
-    alias stops="sudo systemctl stop"
-    alias restarts="sudo systemctl restart"
-    alias reloads="sudo systemctl reload"
-    alias enables="sudo systemctl enable"
-    alias disables="sudo systemctl disable"
-    alias masks="sudo systemctl mask"
-    alias unmasks="sudo systemctl unmask"
-fi
-
-
-## Terraform ##
-
-# Terraform Aliases
-
-if command -v terraform &> /dev/null
-then
-    alias tf="terraform"
-    alias tfi="terraform init"
-    alias tfiu="terraform init -upgrade"
-    alias tfv="terraform validate"
-    alias tfp="terraform plan"
-    alias tfa="terraform apply"
-    alias tfd="terraform destroy"
-    alias tfc="terraform console"
-    alias tff="terraform fmt"
-    alias tfg="terraform get"
-    alias tfm="terraform modules"
-    alias tfo="terraform output"
-    alias tfs="terraform state"
-    alias tfw="terraform workspace"
-fi
-
-
-# Terragrunt Aliases
-
-if command -v terragrunt &> /dev/null
-then
-    alias tg="terragrunt"
-fi
-
-
-# Terrascan Aliases
-
-if command -v terrascan &> /dev/null
-then
-    alias ts="terrascan"
-    alias tss="terrascan scan -iac-type terraform"
-fi
-
-
-# Terralint Aliases
-
-if command -v tflint &> /dev/null
-then
-    alias tfl="tflint"
-    alias tfli="tflint -init"
-fi
-
-
-# Terraform Docs Aliases
-
-if command -v terraform-docs &> /dev/null
-then
-    alias tfdoc="terraform-docs"
-    alias tfdoca="terraform-docs asciidoc"
-    alias tfdocj="terraform-docs json"
-    alias tfdocm="terraform-docs markdown"
-    alias tfdocp="terraform-docs pretty"
-    alias tfdoct="terraform-docs toml"
-    alias tfdocv="terraform-docs tfvars"
-    alias tfdocx="terraform-docs xml"
-    alias tfdocy="terraform-docs yaml"
-fi

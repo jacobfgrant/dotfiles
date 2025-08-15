@@ -1,13 +1,21 @@
 ### ZSH Run Commands ###
+#
+# ZSH configuration, completion, and prompt setup
+#
+# Table of Contents:
+#   - COMMON ALIASES
+#   - TOOL COMPLETION
+#   - ZSH CONFIGURATION
+#
 
-
-# Common Aliases
+## COMMON ALIASES ##
 
 [ -f ~/.common_aliases.sh ] && . ~/.common_aliases.sh
 
 
+## TOOL COMPLETION ##
 
-# AWS CLI Homebrew Autocomplete
+# AWS CLI #
 
 if (( $+commands[brew] && $+commands[aws] ))
 then
@@ -22,10 +30,9 @@ then
 fi
 
 
+# Google Cloud CLI #
 
-# Google Cloud CLI Homebrew Autocomplete
-
-if command -v brew >/dev/null 2>&1
+if command -v brew >/dev/null 2>&1 && command -v gcloud >/dev/null 2>&1
 then
     GCLOUD_PATH="$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
     GCLOUD_COMPLETION="$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
@@ -35,8 +42,7 @@ then
 fi
 
 
-
-# Terragrunt Autocomplete
+# Terragrunt #
 
 if command -v terragrunt >/dev/null 2>&1
 then
@@ -45,13 +51,14 @@ then
 fi
 
 
+## ZSH CONFIGURATION ##
 
-# ZSH Prompt
+# ZSH Prompt #
 
 PROMPT='%(?.%F{10}⏺.%F{9}⏺)%f %2~ $ '
 
 
-# ZSH Right Prompt
+# ZSH Right Prompt #
 
 # Autoload zsh's `add-zsh-hook` and `vcs_info` functions.
 # -U: autoload without substitution, -z: use zsh style.
