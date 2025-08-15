@@ -10,26 +10,41 @@
 
 ### bash/
 
-- `.bash_aliases`
+- `.bash_aliases` – Bash-specific configuration and completion
   - Sources `.common_aliases.sh`
-  - Adds `/usr/local/go/bin` to PATH
   - Sets Bash history length
-  - Other aliases
+  - AWS CLI and Google Cloud CLI completion
 
 
 ### common/
 
 - `.common_aliases.sh` – Common shell aliases used by bash, zsh, etc.
-  - Aliases for [ansible-configure](https://github.com/jacobfgrant/ansible-configure)
-  - General aliases
-  - Python aliases/functions
+  - Environment setup (PATH, Go configuration)
+  - Tool aliases (Ansible, package managers)
+  - Core system aliases (ls, grep, navigation)
+  - Development tools (Python, Terraform ecosystem)
+  - Utility functions (SSH keys, archives, LaTeX)
 
 
 ### git/
 
 - `.gitconfig` – Global configuration for `git`
+  - Comprehensive alias collection
+  - Custom log formatting
+  - Sensible defaults
 
 - `.gitignore_global` – Global `.gitignore` for files/directories that should always be ignored by `git`
+  - Multi-language and platform coverage
+  - IDE and editor patterns
+  - Security-focused exclusions
+
+
+### vim/
+
+- `.vimrc` – Vim editor configuration
+  - Syntax highlighting and line numbers
+  - Smart indentation and search
+  - Vi improvements and key mappings
 
 
 ### zsh/
@@ -37,10 +52,10 @@
 - `.zprofile` – 
   - Configures Homebrew variables/PATH
 
-- `.zshrc` – 
+- `.zshrc` – ZSH configuration and prompt setup
   - Sources `.common_aliases.sh`
-  - Sets zsh prompt
-  - Sets zsh right prompt using git info
+  - Tool completion (AWS CLI, Google Cloud CLI, Terragrunt)
+  - Custom prompt with git integration
 
 
 ### stow.sh
