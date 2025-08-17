@@ -47,6 +47,15 @@
   - Vi improvements and key mappings
 
 
+### tmux/
+
+- `.tmux.conf` – Terminal multiplexer configuration
+  - Remaps prefix to Ctrl-a
+  - Vi-style key bindings
+  - Mouse support enabled
+  - Custom status bar
+
+
 ### zsh/
 
 - `.zprofile` – 
