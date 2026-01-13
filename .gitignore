@@ -1,0 +1,8 @@
+### .gitignore ###
+
+# Claude Code
+
+# Keep CLAUDE.md and settings.json but ignore everything else Claude creates
+claude/.claude/*
+!claude/.claude/CLAUDE.md
+!claude/.claude/settings.json

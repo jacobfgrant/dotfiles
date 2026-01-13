@@ -8,6 +8,12 @@
 - `.ansible.cfg` – Ansible configuration file
 
 
+### claude/
+
+- `.claude/CLAUDE.md` – Claude Code global conventions and preferences
+- `.claude/settings.json` – Claude Code permission rules
+
+
 ### bash/
 
 - `.bash_aliases` – Bash-specific configuration and completion
@@ -49,8 +55,7 @@
 
 ### zsh/
 
-- `.zprofile` – 
-  - Configures Homebrew variables/PATH
+- `.zprofile` – Configures Homebrew variables/PATH
 
 - `.zshrc` – ZSH configuration and prompt setup
   - Sources `.common_aliases.sh`

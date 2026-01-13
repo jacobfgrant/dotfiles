@@ -231,6 +231,10 @@ override.tf.json
 !.vscode/extensions.json
 
 
+# Claude Code
+.claude/
+
+
 # IntelliJ IDEA
 .idea/
 *.iws
