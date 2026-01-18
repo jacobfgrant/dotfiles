@@ -336,67 +336,100 @@ pubkey() {
 
 # Compile LaTeX with Docker
 latex_compile() {
-    local container_name="latexcompiler"
-    local engine=(latexmk -pdf)  # Default to latexmk -pdf
+    local image="jacobfgrant/texlive"
+    local tier="extra"
+    local engine=(latexmk -pdf)
+    local watch=false
+    local clean=false
     local mode="run"
     local OPTIND opt
-    
-    # Parse flags
-    while getopts "pxls" opt
-    do
+
+    # Check Docker is running
+    if ! docker info &>/dev/null; then
+        echo "Error: Docker is not running"
+        return 1
+    fi
+
+    while getopts "pxlswct:" opt; do
         case $opt in
             p) engine=(pdflatex);;
             x) engine=(latexmk -xelatex);;
             l) engine=(latexmk -lualatex);;
             s) mode="shell";;
+            w) watch=true;;
+            c) clean=true;;
+            t) tier="$OPTARG";;
             *) return 1;;
         esac
     done
     shift $((OPTIND-1))
-    
-    # Must have a file to compile
-    if [ $# -eq 0 ] && [ "$mode" != "shell" ]
-    then
-        echo "Usage: latex_compile [-p|-x|-l|-s] [file.tex]"
-        echo "  (no flag): latexmk -pdf (default)"
-        echo "  -p: pdflatex"
-        echo "  -x: latexmk -xelatex"
-        echo "  -l: latexmk -lualatex"
-        echo "  -s: open interactive shell in container"
+
+    # Validate tier
+    case $tier in
+        base|recommended|extra|full) ;;
+        *)
+            echo "Invalid tier: $tier (must be base, recommended, extra, or full)"
+            return 1
+            ;;
+    esac
+
+    # Watch mode only works with latexmk
+    if $watch && [[ "${engine[0]}" != "latexmk" ]]; then
+        echo "Error: watch mode (-w) only works with latexmk engines"
         return 1
     fi
-    
-    # Check if container exists
-    if ! docker ps --all --format '{{.Names}}' | grep -q "^${container_name}$"
-    then
-        # Create (but don't run) a new container
-        docker create \
-            --name "${container_name}" \
-            -v /workdir \
-            texlive/texlive:latest \
-            tail -f /dev/null
+
+    # Show usage if no file provided (unless shell mode)
+    if [[ $# -eq 0 && "$mode" != "shell" ]]; then
+        echo "Usage: latex_compile [-p|-x|-l|-s|-w|-c] [-t tier] [file.tex]"
+        echo ""
+        echo "Engines:"
+        echo "  (default)  latexmk -pdf"
+        echo "  -p         pdflatex"
+        echo "  -x         latexmk -xelatex"
+        echo "  -l         latexmk -lualatex"
+        echo ""
+        echo "Options:"
+        echo "  -s         open interactive shell"
+        echo "  -w         watch mode (recompile on change, Ctrl+C to stop)"
+        echo "  -c         clean auxiliary files after compile"
+        echo "  -t TIER    image tier: base, recommended, extra (default), full"
+        return 1
     fi
 
-    # Decide between running a command or opening a shell
-    if [ "$mode" = "shell" ]
-    then
-        # Interactive shell mode
-        docker run \
-            --rm -it \
-            --volumes-from "${container_name}" \
+    # Add watch flag if requested
+    if $watch; then
+        engine+=(-pvc)
+    fi
+
+    if [[ "$mode" == "shell" ]]; then
+        docker run --rm -it \
             -v "$(pwd):/workdir" \
-            -w "/workdir" \
-            texlive/texlive:latest \
+            -w /workdir \
+            "${image}:${tier}" \
             /bin/bash
-    else
-        # Normal command execution
-        docker run \
-            --rm \
-            --volumes-from "${container_name}" \
+    elif $watch; then
+        # Watch mode needs interactive terminal for Ctrl+C
+        docker run --rm -it \
             -v "$(pwd):/workdir" \
-            -w "/workdir" \
-            texlive/texlive:latest \
+            -w /workdir \
+            "${image}:${tier}" \
             "${engine[@]}" "$@"
+    else
+        docker run --rm \
+            -v "$(pwd):/workdir" \
+            -w /workdir \
+            "${image}:${tier}" \
+            "${engine[@]}" "$@"
+
+        # Clean auxiliary files if requested
+        if $clean; then
+            docker run --rm \
+                -v "$(pwd):/workdir" \
+                -w /workdir \
+                "${image}:${tier}" \
+                latexmk -c "$@"
+        fi
     fi
 }
 
