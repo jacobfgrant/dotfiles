@@ -47,7 +47,7 @@ I'm building testing habits. For non-trivial code:
 
 Follow the seven rules (cbea.ms/git-commit):
 1. Separate subject from body with blank line
-2. Limit subject to 50 chars
+2. Limit subject to 50 chars (DO NOT go over)
 3. Capitalize the subject
 4. No period at end of subject
 5. Imperative mood: "Add feature" not "Added feature"
