@@ -332,6 +332,31 @@ pubkey() {
 }
 
 
+# Fix TERM for SSH (e.g., when using Ghostty on hosts without its terminfo)
+fixssh() {
+    alias ssh='TERM=xterm-256color ssh'
+    echo "SSH TERM compatibility mode enabled"
+}
+
+
+# Install local terminfo on a remote host
+ghostty-setup() {
+    if [ $# -eq 0 ]; then
+        echo "Usage: ghostty-setup <host> [host ...]"
+        return 1
+    fi
+
+    for host in "$@"; do
+        echo "Installing terminfo on $host..."
+        if infocmp -x xterm-ghostty | ssh "$host" -- tic -x -; then
+            echo "  $host: done"
+        else
+            echo "  $host: failed" >&2
+        fi
+    done
+}
+
+
 # LaTeX #
 
 # Compile LaTeX with Docker
