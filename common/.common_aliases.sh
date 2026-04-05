@@ -136,6 +136,14 @@ fi
 
 ## DEVELOPMENT TOOLS ##
 
+# Docker #
+
+if command -v docker &> /dev/null
+then
+    alias docker-compose="docker compose"
+fi
+
+
 # Python #
 
 # python -> python3
