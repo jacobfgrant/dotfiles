@@ -103,7 +103,9 @@
       "Bash(xargs cat *)",
       "Glob",
       "Grep",
-      "Read"
+      "Read",
+      "WebFetch",
+      "WebSearch"
     ],
     "deny": [
       "Bash(dd *)",
@@ -124,15 +126,12 @@
       "Bash(git restore -W .)",
       "Bash(git restore .)",
       "Bash(mkfs *)",
-      "Bash(rm *)",
       "Bash(sudo *)",
       "Read(**/*.key)",
       "Read(**/*.p12)",
       "Read(**/*.pem)",
       "Read(**/*.pfx)",
       "Read(**/*.secret*)",
-      "Read(**/.env)",
-      "Read(**/.env)",
       "Read(**/.netrc)",
       "Read(**/credentials*)",
       "Read(**/id_ed25519*)",
@@ -144,6 +143,26 @@
       "Read(~/.gnupg/**)",
       "Read(~/.kube/**)",
       "Read(~/.ssh/**)"
+    ],
+    "ask": [
+      "Bash(aws * delete-* *)",
+      "Bash(aws * terminate-* *)",
+      "Bash(aws cloudformation delete-stack *)",
+      "Bash(aws s3 rm *)",
+      "Bash(chmod -R *)",
+      "Bash(chown -R *)",
+      "Bash(kill -9 *)",
+      "Bash(kubectl delete *)",
+      "Bash(rm *)",
+      "Bash(sam delete *)",
+      "Bash(sam deploy *)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(terragrunt apply *)",
+      "Bash(terragrunt destroy *)",
+      "Read(**/.env)",
+      "Read(**/.env.*)"
     ]
-  }
+  },
+  "effortLevel": "high"
 }
