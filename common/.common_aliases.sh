@@ -15,6 +15,13 @@
 
 # PATH Extensions #
 
+# $HOME/.local/bin
+if [ -d "$HOME/.local/bin" ]
+then
+    export PATH="$PATH:$HOME/.local/bin"
+fi
+
+
 # /usr/local/go/bin
 if [ -d "/usr/local/go/bin" ]
 then
