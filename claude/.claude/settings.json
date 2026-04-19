@@ -164,5 +164,14 @@
       "Read(**/.env.*)"
     ]
   },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "~/.claude/hooks/notify.sh" }
+        ]
+      }
+    ]
+  },
   "effortLevel": "high"
 }
