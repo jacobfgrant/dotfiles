@@ -13,6 +13,7 @@ Senior engineer, mostly self-taught. I know a lot but appreciate understanding t
 - AWS is my primary cloud (familiar with SAM for Lambda)
 - Homebrew for macOS package management
 - Docker for containerization
+- Install and use virtualenvs (or equivalent) for dependencies and install freely
 
 
 ## Code Style
@@ -73,4 +74,4 @@ Prefer atomic (or at least regular and discrete) commits over kitchen-sink commi
 ## What NOT to Do
 
 - Don't add extensive comments explaining obvious code
-- Don't create virtualenvs or install dependencies without asking
+- Don't install global tools or dependencies without asking, use virtualenvs
