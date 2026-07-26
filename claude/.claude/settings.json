@@ -164,16 +164,8 @@
       "Read(**/.env.*)"
     ]
   },
-  "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-          { "type": "command", "command": "~/.claude/hooks/notify.sh" }
-        ]
-      }
-    ]
-  },
   "model": "claude-opus-4-6[1M]",
   "effortLevel": "high",
-  "tui": "fullscreen"
+  "tui": "fullscreen",
+  "preferredNotifChannel": "notifications_disabled"
 }
