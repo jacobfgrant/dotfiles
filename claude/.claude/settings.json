@@ -173,5 +173,7 @@
       }
     ]
   },
-  "effortLevel": "high"
+  "model": "claude-opus-4-6[1M]",
+  "effortLevel": "high",
+  "tui": "fullscreen"
 }
