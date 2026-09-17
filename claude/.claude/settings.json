@@ -1,4 +1,7 @@
 {
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(.venv/bin/alembic *)",
@@ -24,17 +27,6 @@
       "Bash(echo *)",
       "Bash(find *)",
       "Bash(gh release view *)",
-      "Bash(git -C * add *)",
-      "Bash(git -C * branch --list *)",
-      "Bash(git -C * branch -a *)",
-      "Bash(git -C * check-ignore *)",
-      "Bash(git -C * commit *)",
-      "Bash(git -C * diff *)",
-      "Bash(git -C * fetch *)",
-      "Bash(git -C * log *)",
-      "Bash(git -C * show *)",
-      "Bash(git -C * status)",
-      "Bash(git -C * tag --sort *)",
       "Bash(git add * && git commit *)",
       "Bash(git add *)",
       "Bash(git blame *)",
@@ -164,7 +156,7 @@
       "Read(**/.env.*)"
     ]
   },
-  "model": "claude-opus-4-6[1M]",
+  "model": "fable[1m]",
   "effortLevel": "high",
   "tui": "fullscreen",
   "preferredNotifChannel": "notifications_disabled"
