@@ -318,6 +318,73 @@ alias mkgz="tar -czvf"
 alias ungz="tar -xzvf"
 
 
+# AWS #
+
+aws-auth() {
+    # Route the login browser to Chrome, but only where Chrome exists
+    if [ "${OSTYPE#darwin}" != "$OSTYPE" ] && \
+       { [ -d "/Applications/Google Chrome.app" ] || \
+         [ -d "$HOME/Applications/Google Chrome.app" ]; }; then
+        local -x BROWSER="open -a 'Google Chrome' %s"
+    fi
+
+    local sso_session="jacobfgrant"
+    local probe_profile="read"
+    local target=""
+
+    # --- Validate optional profile argument -------------------------------
+    if [ -n "${1:-}" ]; then
+        case "$1" in
+            admin|read|view)
+                target="$1"
+                ;;
+            *)
+                printf 'aws-auth: unknown profile %s (expected: admin, read, view)\n' "$1" >&2
+                return 2
+                ;;
+        esac
+    fi
+
+    # --- Probe: do the cached credentials actually work? ------------------
+    if ! aws sts get-caller-identity --profile "$probe_profile" >/dev/null 2>&1; then
+        printf 'aws-auth: no valid session; logging in via %s...\n' "$sso_session" >&2
+        if ! aws sso login --sso-session "$sso_session"; then
+            printf 'aws-auth: ERROR: sso login failed (browser launch or portal auth)\n' >&2
+            return 1
+        fi
+        # Re-probe: login "succeeding" but creds not working should be loud.
+        if ! aws sts get-caller-identity --profile "$probe_profile" >/dev/null 2>&1; then
+            printf 'aws-auth: ERROR: login completed but credentials still failing\n' >&2
+            return 1
+        fi
+    fi
+
+    # --- Optionally set the shell profile ---------------------------------
+    if [ -n "$target" ]; then
+        export AWS_PROFILE="$target"
+    fi
+
+    # --- Report identity: who am I right now? -----------------------------
+    local shell_profile="${AWS_PROFILE:-}"
+    local report_profile="${shell_profile:-$probe_profile}"
+    local arn role
+
+    arn="$(aws sts get-caller-identity --profile "$report_profile" \
+             --query Arn --output text 2>/dev/null)"
+    # arn:aws:sts::<acct>:assumed-role/AWSReservedSSO_<PermSet>_<hash>/<user>
+    role="$(printf '%s' "$arn" | cut -d/ -f2)"
+    role="${role#AWSReservedSSO_}"
+    role="${role%_*}"
+
+    if [ -n "$shell_profile" ]; then
+        printf 'aws-auth: session ok — profile %s (%s)\n' "$shell_profile" "${role:-unknown}"
+    else
+        printf 'aws-auth: session ok — no shell profile set (probe was %s: %s)\n' \
+            "$probe_profile" "${role:-unknown}"
+    fi
+}
+
+
 # SSH #
 
 # Get SSH public key
