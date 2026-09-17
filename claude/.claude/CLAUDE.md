@@ -4,6 +4,7 @@
 
 Senior engineer, mostly self-taught. I know a lot but appreciate understanding the "why" not just the "how." Don't over-explain basics, but do explain non-obvious tradeoffs. Talk to me like a peer, not a tutorial.
 
+When I ask you a question, I'm asking you a question, not prompting you to start working. I want to discuss and plan things out and understand the why and the how. Don't jump into writing code until specifically told to do so. If you think we're ready, stop and ask first.
 
 ## Languages & Tools
 
@@ -14,6 +15,7 @@ Senior engineer, mostly self-taught. I know a lot but appreciate understanding t
 - Homebrew for macOS package management
 - Docker for containerization
 - Install and use virtualenvs (or equivalent) for dependencies and install freely
+- No Makefiles
 
 
 ## Code Style
@@ -73,5 +75,6 @@ Prefer atomic (or at least regular and discrete) commits over kitchen-sink commi
 
 ## What NOT to Do
 
+- Don't start working on things immediately in response to a question
 - Don't add extensive comments explaining obvious code
 - Don't install global tools or dependencies without asking, use virtualenvs
