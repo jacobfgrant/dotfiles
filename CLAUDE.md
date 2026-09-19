@@ -20,6 +20,9 @@ Cross-platform dotfiles for macOS and Linux using GNU Stow for symlink managemen
 - **Portability first**: Prefer standard tools (ls, grep) as the default. Modern alternatives (eza, ripgrep) are fine if wrapped with availability checks and graceful fallback.
 - **Cross-platform**: Detect and adapt to macOS vs Linux; test command availability before aliasing
 - **Stow-based deployment**: Each top-level directory stows into $HOME
+- **Live configuration**: Editing a Stow source can immediately change the active
+  configuration through an existing symlink. Treat edits accordingly; deployment
+  is not always a separate activation step.
 
 
 ## Core Files

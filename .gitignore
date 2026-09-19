@@ -3,12 +3,5 @@
 # Claude Code
 
 # Our global .gitignore has ".claude/" which would exclude this stow source
-# entirely; re-include the directory before layering specific rules.
+# entirely; re-include the directory here.
 !claude/.claude/
-
-# Keep CLAUDE.md, settings.json, and hooks; ignore everything else Claude creates
-claude/.claude/*
-!claude/.claude/CLAUDE.md
-!claude/.claude/settings.json
-!claude/.claude/hooks
-!claude/.claude/hooks/**

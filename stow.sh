@@ -31,6 +31,7 @@ for dir in */
 do
     if [ "$dir" != ".git/" ] && [ "$(ls -A "$dir")" ]
     then
-        $STOW -t "$HOME" -R "${dir%/}"
+        # Link individual files so application data stays outside the repository.
+        "$STOW" --no-folding -t "$HOME" -R "${dir%/}"
     fi
 done

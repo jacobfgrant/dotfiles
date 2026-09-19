@@ -65,4 +65,4 @@
 
 ### stow.sh
 
-The `stow.sh` script can be used to quickly and easily symlink the dotfiles in this repository into a users home directory. Using GNU Stow, it creates symlinks in the user's home directory for the contents of each directory located in the same directory as the script.
+The `stow.sh` script can be used to quickly and easily symlink the dotfiles in this repository into a users home directory. Using GNU Stow with `--no-folding`, it links individual files into the user's home directory while keeping destination directories real.
