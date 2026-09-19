@@ -1,5 +1,8 @@
 {
   "env": {
+    "AWS_CONFIG_FILE": "~/.aws/agent-config",
+    "AWS_PROFILE": "read",
+    "AWS_SHARED_CREDENTIALS_FILE": "~/.aws/agent-credentials",
     "DISABLE_AUTOUPDATER": "1"
   },
   "permissions": {
@@ -10,6 +13,8 @@
       "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/python -m pytest *)",
       "Bash(awk *)",
+      "Bash(aws --profile read *)",
+      "Bash(aws --profile view *)",
       "Bash(brew info *)",
       "Bash(brew list *)",
       "Bash(cat *)",
@@ -61,6 +66,7 @@
       "Bash(gofmt *)",
       "Bash(grep *)",
       "Bash(head *)",
+      "Bash(jq *)",
       "Bash(ls *)",
       "Bash(lsof *)",
       "Bash(mkdir *)",
@@ -137,8 +143,13 @@
       "Read(~/.ssh/**)"
     ],
     "ask": [
+      "Bash(*AWS_CONFIG_FILE=*)",
+      "Bash(*AWS_PROFILE=*)",
+      "Bash(*AWS_SHARED_CREDENTIALS_FILE=*)",
       "Bash(aws * delete-* *)",
       "Bash(aws * terminate-* *)",
+      "Bash(aws *--profile admin*)",
+      "Bash(aws *--profile=admin*)",
       "Bash(aws cloudformation delete-stack *)",
       "Bash(aws s3 rm *)",
       "Bash(chmod -R *)",

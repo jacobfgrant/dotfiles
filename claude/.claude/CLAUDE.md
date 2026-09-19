@@ -73,6 +73,16 @@ Prefer atomic (or at least regular and discrete) commits over kitchen-sink commi
 - DO NOT include attribution (e.g., "Co-Authored-By: Claude...") in commit messages
 
 
+## AWS
+
+Sessions are pinned to read-only AWS profiles (`read`, `view`) on purpose.
+
+- Write `aws --profile read ...` with the flag first; that form is pre-approved
+- Never work around the pin. If something needs write access, stop and tell me.
+- Only when I explicitly ask for a write: `AWS_CONFIG_FILE=~/.aws/config aws --profile admin ...`, for that command only
+- A plan isn't permission to apply, deploy, or delete. Hand me the command unless told otherwise.
+
+
 ## What NOT to Do
 
 - Don't start working on things immediately in response to a question
