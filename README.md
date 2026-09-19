@@ -8,6 +8,12 @@
 - `.ansible.cfg` – Ansible configuration file
 
 
+### aws/
+
+- `.aws/config` – AWS CLI profiles (IAM Identity Center; no credentials)
+- `.aws/agent-config` – Read-only profiles used by agents via `AWS_CONFIG_FILE`
+
+
 ### claude/
 
 - `.claude/CLAUDE.md` – Claude Code global conventions and preferences
