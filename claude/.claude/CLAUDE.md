@@ -64,7 +64,7 @@ Prefer atomic (or at least regular and discrete) commits over kitchen-sink commi
 
 ## Commits During Development
 
-**IMPORTANT:** Make commits as you work, not at the end. After completing each discrete piece of functionality (a new file, a working feature, a bug fix), commit it immediately. Don't accumulate uncommitted changes.
+**IMPORTANT:** Make commits as you work, not at the end. After completing each discrete piece of functionality, commit it immediately. Don't accumulate uncommitted changes.
 
 - Commit after each logical unit of work, not in batches
 - Ask before committing to main/master (prefer to develop on branches)
