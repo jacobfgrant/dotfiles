@@ -1,0 +1,279 @@
+# These command-approval checks supplement the sandbox and AGENTS.md. They can
+# restrict commands that otherwise fit inside the sandbox, but do not cover
+# every way to perform an operation. No rule here grants sandbox bypass: an
+# `allow` decision skips approval AND runs the command outside the sandbox, so
+# it is reserved for commands that genuinely need to escape it. None do yet.
+#
+# Patterns match literal argument prefixes, not flags anywhere in a command.
+# Global options (git -C, terraform -chdir=...), reordered flags, other aliases,
+# and commands inside scripts can escape these patterns. A missing match is
+# not an allow rule; normal Codex approval and sandbox checks still apply.
+#
+# Principle for discarding changes: common bulk-discard forms are forbidden;
+# every other reset, restore, or checkout invocation prompts, because "undo
+# your change to that file" is a legitimate request. Not every equivalent
+# spelling is enumerated; the broad prompt is the safety net.
+#
+# Verify with:  codex execpolicy check --pretty --rules <this file> -- <cmd>
+
+## GIT ##
+
+# Broad prompt catches reset, restore, and checkout variants the prohibitions
+# below miss, including safe unstaging and path discards without "--". Use
+# git switch for routine branch work so this prompt stays rare.
+prefix_rule(
+    pattern = ["git", ["reset", "re", "restore", "checkout", "co"]],
+    decision = "prompt",
+    justification = "Review changes to the index or working tree; preserve existing work.",
+    match = ["git reset HEAD --hard", "git re HEAD -- example.py",
+             "git restore example.py", "git restore --staged .",
+             "git checkout example.py", "git co feature -- example.py"],
+    not_match = ["git status", "git switch -c feature"],
+)
+# These aliases restore paths from master, dev, or HEAD respectively.
+prefix_rule(
+    pattern = ["git", ["com", "cod", "cop"]], decision = "prompt",
+    justification = "These checkout aliases can discard existing changes; inspect the diff first.",
+    match = ["git com", "git cod example.py", "git cop example.py"],
+)
+
+prefix_rule(
+    pattern = ["git", ["reset", "re"], "--hard"],
+    decision = "forbidden",
+    justification = "Preserve existing changes; use a non-destructive recovery.",
+    match = ["git reset --hard HEAD", "git re --hard"],
+    not_match = ["git reset --soft HEAD~1", "git reset HEAD --hard"],
+)
+prefix_rule(
+    pattern = ["git", "reh"], decision = "forbidden",
+    justification = "This alias runs git reset --hard; preserve existing changes.",
+    match = ["git reh", "git reh HEAD"],
+)
+prefix_rule(
+    pattern = ["git", "clean"], decision = "forbidden",
+    justification = "Preserve untracked files. This blanket rule also blocks clean previews.",
+    match = ["git clean -fd", "git clean -n"],
+)
+
+# Checkout and switch: whole-tree discards are forbidden; path discards fall
+# to the broad prompt above.
+prefix_rule(
+    pattern = ["git", ["checkout", "co"], ["--", "."], "."],
+    decision = "forbidden",
+    justification = "Do not discard all working-tree changes; inspect the diff first.",
+    match = ["git checkout -- .", "git co -- .", "git checkout . ."],
+    not_match = ["git checkout -- example.py"],
+)
+prefix_rule(
+    pattern = ["git", ["checkout", "co"], "."],
+    decision = "forbidden",
+    justification = "Do not discard all working-tree changes; inspect the diff first.",
+    match = ["git checkout .", "git co ."],
+    not_match = ["git checkout -b feature", "git co main", "git checkout example.py"],
+)
+prefix_rule(
+    pattern = ["git", ["checkout", "co"], ["-f", "--force"]],
+    decision = "forbidden",
+    justification = "Forced checkout discards local changes; inspect the diff first.",
+    match = ["git checkout -f main", "git co --force feature"],
+)
+prefix_rule(
+    pattern = ["git", "switch", ["-f", "--force", "--discard-changes"]],
+    decision = "forbidden",
+    justification = "Forced switch discards local changes; inspect the diff first.",
+    match = ["git switch -f main", "git switch --discard-changes feature"],
+    not_match = ["git switch main", "git switch -c feature"],
+)
+prefix_rule(
+    pattern = ["git", ["checkout", "co"], ["HEAD", "master", "main", "dev"], "--", "."],
+    decision = "forbidden",
+    justification = "Do not replace all existing work with the committed version.",
+    match = ["git checkout HEAD -- .", "git co master -- ."],
+)
+
+# Restore: whole-tree discards are forbidden; named paths and plain unstaging
+# fall to the broad prompt above.
+prefix_rule(
+    pattern = ["git", "restore", "."],
+    decision = "forbidden",
+    justification = "Do not discard all working-tree changes; inspect the diff first.",
+    match = ["git restore ."],
+    not_match = ["git restore example.py", "git restore --staged ."],
+)
+prefix_rule(
+    pattern = ["git", "restore", ["-W", "--worktree"], "."],
+    decision = "forbidden",
+    justification = "Do not discard all working-tree changes; inspect the diff first.",
+    match = ["git restore -W .", "git restore --worktree ."],
+    not_match = ["git restore --worktree example.py"],
+)
+prefix_rule(
+    pattern = ["git", "restore", ["-W", "--worktree", "-S", "--staged"],
+               ["-W", "--worktree", "-S", "--staged"], "."],
+    decision = "forbidden",
+    justification = "Do not discard all working-tree changes; inspect the diff first.",
+    match = ["git restore -S -W .", "git restore --worktree --staged ."],
+    not_match = ["git restore --staged .", "git restore -S -W example.py"],
+)
+
+prefix_rule(
+    pattern = ["git", ["push", "pu"], ["--force", "--force-with-lease", "-f"]],
+    decision = "forbidden",
+    justification = "Do not rewrite remote history; use a normal push.",
+    match = ["git push --force", "git push --force-with-lease origin feature", "git pu -f"],
+    not_match = ["git push origin feature --force", "git push --force-with-lease=refs/heads/feature"],
+)
+prefix_rule(
+    pattern = ["git", "puf"], decision = "forbidden",
+    justification = "This alias force-pushes; use a normal push.",
+    match = ["git puf", "git puf origin feature"],
+)
+prefix_rule(
+    pattern = ["git", ["push", "pu"]], decision = "prompt",
+    justification = "Confirm publication and inspect all flags; reordered force flags also reach this prompt.",
+    match = ["git push origin feature", "git push origin feature --force", "git pu --force"],
+    not_match = ["git fetch origin", "git -C project push --force"],
+)
+
+# Alias expansion happens inside git, so each spelling needs its own pattern.
+prefix_rule(
+    pattern = ["git", ["branch", "b"], ["-D", "-df", "-fd"]],
+    decision = "forbidden",
+    justification = "Use safe branch deletion after checking merged work.",
+    match = ["git branch -D feature", "git b -D feature", "git branch -df feature"],
+    not_match = ["git branch -d feature", "git b --list"],
+)
+prefix_rule(
+    pattern = ["git", ["branch", "b"], ["-d", "--delete"], ["-f", "--force"]],
+    decision = "forbidden",
+    justification = "Do not force branch deletion; check that the work is merged.",
+    match = ["git branch --delete --force feature", "git b -d -f feature"],
+)
+prefix_rule(
+    pattern = ["git", ["branch", "b"], ["-f", "--force"], ["-d", "--delete"]],
+    decision = "forbidden",
+    justification = "Do not force branch deletion; check that the work is merged.",
+    match = ["git branch --force --delete feature", "git b -f -d feature"],
+)
+prefix_rule(
+    pattern = ["git", "bd", ["-f", "--force", "-D"]], decision = "forbidden",
+    justification = "The bd alias already deletes branches; do not add force.",
+    match = ["git bd -f feature", "git bd --force feature"],
+    not_match = ["git bd feature"],
+)
+
+prefix_rule(
+    pattern = ["git", "stash", ["drop", "clear"]], decision = "forbidden",
+    justification = "Preserve saved work; inspect and apply a stash instead of discarding it.",
+    match = ["git stash drop", "git stash clear"],
+    not_match = ["git stash list", "git stash apply", "git stash pop"],
+)
+prefix_rule(
+    pattern = ["git", "rm"], decision = "prompt",
+    justification = "Confirm removal of tracked files or index entries.",
+    match = ["git rm example.py", "git rm --cached example.py"],
+)
+
+## SYSTEM AND FILES ##
+
+prefix_rule(
+    pattern = ["sudo"], decision = "forbidden",
+    justification = "Keep privileged system changes manual, matching the Claude policy.",
+    match = ["sudo true", "sudo -n command"],
+)
+prefix_rule(
+    pattern = ["dd"], decision = "forbidden",
+    justification = "Avoid raw writes that can overwrite files or disks; choose a scoped file operation.",
+    match = ["dd if=/dev/zero of=example.img"],
+)
+# Executable names are literal: include common Linux and macOS formatters.
+prefix_rule(
+    pattern = [["mkfs", "mkfs.ext2", "mkfs.ext3", "mkfs.ext4", "mkfs.xfs",
+                "mkfs.btrfs", "mkfs.vfat", "mkfs.exfat", "newfs", "newfs_hfs", "newfs_apfs"]],
+    decision = "forbidden",
+    justification = "Filesystem formatting is destructive; leave it to the user.",
+    match = ["mkfs /dev/example", "mkfs.ext4 /dev/example", "newfs_apfs /dev/example"],
+)
+prefix_rule(
+    pattern = ["diskutil", ["eraseDisk", "eraseVolume", "partitionDisk", "reformat",
+                            "secureErase", "zeroDisk", "randomDisk"]],
+    decision = "forbidden",
+    justification = "Disk erasure is destructive; leave it to the user.",
+    match = ["diskutil eraseDisk JHFS+ Example disk2"],
+    not_match = ["diskutil list", "diskutil info disk2"],
+)
+prefix_rule(
+    pattern = ["rm"], decision = "prompt",
+    justification = "Confirm file deletion and the exact target paths.",
+    match = ["rm example.py", "rm -rf build"],
+)
+prefix_rule(
+    pattern = [["chmod", "chown"], ["-R", "--recursive"]], decision = "prompt",
+    justification = "Review the target and scope before changing permissions or ownership recursively.",
+    match = ["chmod -R u+w project", "chown --recursive user project"],
+    not_match = ["chmod +x script.sh", "chown user example.py"],
+)
+prefix_rule(
+    pattern = ["kill", ["-9", "-KILL", "-SIGKILL", "--signal=9", "--signal=KILL", "--signal=SIGKILL"]],
+    decision = "prompt",
+    justification = "Confirm the process before terminating it without cleanup; prefer graceful shutdown.",
+    match = ["kill -9 12345", "kill -KILL 12345", "kill --signal=KILL 12345"],
+    not_match = ["kill -TERM 12345"],
+)
+prefix_rule(
+    pattern = ["kill", ["-s", "--signal"], ["9", "KILL", "SIGKILL"]],
+    decision = "prompt",
+    justification = "Confirm the process before terminating it without cleanup; prefer graceful shutdown.",
+    match = ["kill -s KILL 12345", "kill --signal 9 12345"],
+    not_match = ["kill -s TERM 12345"],
+)
+
+## INFRASTRUCTURE ##
+
+# Selected mutation prefixes keep routine inspection free of extra rules.
+# These lists do not classify every operation or global-option placement.
+prefix_rule(
+    pattern = ["terraform", ["apply", "destroy", "import", "refresh", "taint", "untaint", "force-unlock"]],
+    decision = "prompt",
+    justification = "Confirm the environment and infrastructure, state, or lock changes.",
+    match = ["terraform apply", "terraform destroy", "terraform force-unlock lock-id"],
+    not_match = ["terraform plan", "terraform validate", "terraform -chdir=infra apply"],
+)
+prefix_rule(
+    pattern = ["terraform", "state", ["rm", "mv", "push", "replace-provider"]],
+    decision = "prompt",
+    justification = "Review the state change, target workspace, and recovery plan.",
+    match = ["terraform state rm example_resource.example", "terraform state push state.json"],
+    not_match = ["terraform state list", "terraform state show example_resource.example"],
+)
+prefix_rule(
+    pattern = ["terraform", "workspace", "delete"], decision = "prompt",
+    justification = "Confirm the workspace and preserve any state before deletion.",
+    match = ["terraform workspace delete example"],
+    not_match = ["terraform workspace list"],
+)
+prefix_rule(
+    pattern = ["terragrunt", ["apply", "destroy", "run", "run-all"]], decision = "prompt",
+    justification = "Review the Terragrunt targets and operations; run wrappers may mutate multiple stacks.",
+    match = ["terragrunt apply", "terragrunt run -- apply", "terragrunt run-all destroy"],
+    not_match = ["terragrunt plan"],
+)
+prefix_rule(
+    pattern = ["sam", ["deploy", "delete"]], decision = "prompt",
+    justification = "Confirm the target stack and infrastructure changes.",
+    match = ["sam deploy", "sam delete --stack-name example"],
+    not_match = ["sam validate", "sam build"],
+)
+prefix_rule(
+    pattern = ["kubectl", ["delete", "apply", "patch", "replace"]], decision = "prompt",
+    justification = "Confirm the cluster, namespace, resources, and intended changes.",
+    match = ["kubectl delete pod example", "kubectl apply -f example.yaml",
+             "kubectl patch deployment example", "kubectl replace -f example.yaml"],
+    not_match = ["kubectl get pods", "kubectl describe pod example"],
+)
+# A profile name alone does not establish read-only AWS permissions.
+prefix_rule(
+    pattern = ["aws"], decision = "prompt",
+    justification = "Confirm the AWS profile, account, target, and operation.",
+    match = ["aws --profile read sts get-caller-identity", "aws s3 rm s3://example/key"],
+)

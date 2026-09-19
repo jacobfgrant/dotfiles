@@ -1,0 +1,47 @@
+# Codex configuration and preferences
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+approval_policy = "on-request"
+approvals_reviewer = "user"
+
+# Permission profiles replace sandbox_mode / sandbox_workspace_write.
+default_permissions = "development"
+
+[permissions.development]
+description = "Workspace edits, protected credentials, and approval for network access"
+extends = ":workspace"
+
+[permissions.development.network]
+enabled = false
+
+[permissions.development.filesystem]
+"~/.ssh" = "deny"
+"~/.aws" = "deny"
+"~/.gnupg" = "deny"
+"~/.kube" = "deny"
+"~/.config/gh" = "deny"
+"~/.netrc" = "deny"
+# Bound recursive glob expansion on Linux and Windows.
+glob_scan_max_depth = 8
+
+[permissions.development.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.key" = "deny"
+"**/*.pem" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/secrets/**" = "deny"
+
+[tui]
+notifications = false
+
+# Retained from this machine's existing config. Other checkouts can remove or
+# replace these paths; Codex also records newly trusted projects in this file.
+[projects."/Users/jacobfgrant/Developer/Git/jacobfgrant/before-tuesday"]
+trust_level = "trusted"
+
+[projects."/Users/jacobfgrant/.dotfiles"]
+trust_level = "trusted"

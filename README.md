@@ -28,6 +28,14 @@
   - AWS CLI and Google Cloud CLI completion
 
 
+### codex/
+
+- `.codex/AGENTS.md` – Codex global conventions and preferences
+- `.codex/personal.config.toml` – Shared Codex profile
+- `.codex/rules/safety.rules` – Command permission rules
+- [Setup and configuration](codex/README.md)
+
+
 ### common/
 
 - `.common_aliases.sh` – Common shell aliases used by bash, zsh, etc.
