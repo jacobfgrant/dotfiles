@@ -1,0 +1,4 @@
+# Codex only loads regular files from rules/, so stow.sh copies them instead.
+^/\.codex/rules
+# Restore the default ignore for README, lost when this file exists.
+^/README.*

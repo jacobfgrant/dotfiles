@@ -35,3 +35,12 @@ do
         "$STOW" --no-folding -t "$HOME" -R "${dir%/}"
     fi
 done
+
+# Codex silently ignores symlinked rules files (openai/codex#32658), so copy
+# them. Edits to codex/.codex/rules take effect only after re-running this.
+mkdir -p "$HOME/.codex/rules"
+for rules_file in codex/.codex/rules/*.rules
+do
+    rm -f "$HOME/.codex/rules/$(basename "$rules_file")"
+    cp "$rules_file" "$HOME/.codex/rules/"
+done

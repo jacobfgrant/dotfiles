@@ -14,9 +14,9 @@ Codex writes to `config.toml` through its symlink: switching models in a session
 
 ## Deployment
 
-`stow.sh` uses `--no-folding` for every package. `~/.codex` stays a real directory holding Codex's runtime data, and the three managed files are symlinks into this repository. Edits take effect immediately.
+`stow.sh` uses `--no-folding` for every package. `~/.codex` stays a real directory holding Codex's runtime data, and `AGENTS.md` and `config.toml` are symlinks into this repository. Edits to them take effect immediately.
 
-Codex silently ignores symlinked `.rules` files ([openai/codex#32658](https://github.com/openai/codex/issues/32658)), so `safety.rules` is deployed but not loaded. Until that is fixed, the restrictions in `AGENTS.md` are the only guard. Verify the rules themselves with:
+The exception is `.codex/rules/`. Codex silently ignores symlinked `.rules` files ([openai/codex#32658](https://github.com/openai/codex/issues/32658)), so `.stow-local-ignore` excludes that directory from Stow and `stow.sh` copies its files into `~/.codex/rules` instead. Edits there take effect only after re-running `stow.sh`. Verify the rules themselves with:
 
 ```sh
 codex execpolicy check --pretty --rules ~/.dotfiles/codex/.codex/rules/safety.rules -- git clean -n
