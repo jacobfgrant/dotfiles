@@ -88,3 +88,8 @@ Sessions are pinned to read-only AWS profiles (`read`, `view`) on purpose.
 - Don't start working on things immediately in response to a question
 - Don't add extensive comments explaining obvious code
 - Don't install global tools or dependencies without asking, use virtualenvs
+
+
+## Second Opinions
+
+`codex-delegate` runs OpenAI models through the local Codex CLI with the permission profile, model, and effort pinned per intent; the `codex-delegate` skill is the contract. Use the `codex-reviewer` agent for substantive changes, `codex-consult` when stuck or when explanations compete, and `codex-implementer` for bounded work in its own worktree. GPT-6 Sol at high is the default; GPT-6 Astra only for genuinely hard problems or when Sol and you disagree. Treat findings as peer input and verify them. Never widen Codex's permissions to make a run succeed; surface the blocked operation instead.
