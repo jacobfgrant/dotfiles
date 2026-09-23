@@ -67,12 +67,13 @@ codex-delegate doctor
 
 Checks the installed Codex version against the one the wrapper was validated on, Codex's own doctor report, the model catalog, every `codex exec` flag the wrapper relies on, the profiles in `config.toml`, and then runs sandbox canaries for both profiles through `codex sandbox` (reads, writes, secret files, `~/.ssh`, network, git). It makes no model calls and takes a few seconds. Run it after a Codex update. When it warns about the version, run `/codex-audit` in Claude Code to review the release notes against the wrapper's assumptions.
 
-Unit tests cover command construction, event parsing, session summaries, and the doctor checks:
+Unit tests cover command construction, the project-config refusal, session summaries and resume verification, and the doctor's config check:
 
 ```sh
-python3 -m venv .venv && .venv/bin/pip install pytest
-.venv/bin/pytest codex/tests
+python3 -m pytest codex/tests
 ```
+
+Any environment with pytest works; a throwaway `.venv` at the repo root is ignored by git.
 
 ### Why not the official plugin
 

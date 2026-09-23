@@ -10,15 +10,18 @@ approvals_reviewer = "user"
 default_permissions = "development"
 
 [permissions.development]
-description = "Workspace edits, protected credentials, and approval for network access"
+description = "Workspace edits, no network, credential stores and secret files denied"
 extends = ":workspace"
 
 [permissions.development.network]
 enabled = false
 
-# ~/Library is denied except the package caches (pip, uv) interactive work
-# reads; a child read entry overrides a denied parent for regular paths.
-# Only the docker auth file is denied so the CLI itself keeps working.
+# Both profiles deny the same paths; only `extends` differs. ~/Library is
+# denied except the package caches (pip, uv) that tooling reads; a child read
+# entry overrides a denied parent for regular paths. Only the docker auth file
+# is denied so the CLI itself keeps working. ~/.codex stays readable because
+# Codex re-executes its own binary from ~/.codex/packages inside the sandbox
+# to load AGENTS.md; only its credential and transcript paths are denied.
 [permissions.development.filesystem]
 "~/.ssh" = "deny"
 "~/.aws" = "deny"
@@ -53,9 +56,6 @@ glob_scan_max_depth = 8
 # Reads are "home minus credential stores" rather than strictly workspace-only:
 # a blanket "~" = "deny" also blocks the ~/.gitconfig symlink, and a file-level
 # read entry does not override a denied parent for symlinks, so git breaks.
-# ~/.codex itself must stay readable: Codex re-executes its own binary from
-# ~/.codex/packages inside the sandbox to load AGENTS.md, so only the
-# credential and transcript paths under it are denied.
 [permissions.review]
 description = "Read-only, no network, credential stores and secret files denied"
 extends = ":read-only"
@@ -73,13 +73,15 @@ enabled = false
 "~/.netrc" = "deny"
 "~/.npmrc" = "deny"
 "~/.pypirc" = "deny"
-"~/.docker" = "deny"
 "~/.terraform.d" = "deny"
 "~/.codex/auth.json" = "deny"
 "~/.codex/sessions" = "deny"
 "~/.codex/history.jsonl" = "deny"
 "~/.claude" = "deny"
+"~/.docker/config.json" = "deny"
 "~/Library" = "deny"
+"~/Library/Caches" = "read"
+# Bound recursive glob expansion on Linux and Windows.
 glob_scan_max_depth = 8
 
 [permissions.review.filesystem.":workspace_roots"]
