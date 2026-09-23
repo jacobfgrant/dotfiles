@@ -1,0 +1,775 @@
+#!/usr/bin/env python3
+"""Run Codex non-interactively with the model, effort, and permissions pinned per intent.
+
+Each subcommand maps an intent (review, adversarial, consult, implement, resume)
+to a Codex permission profile from ~/.codex/config.toml, a default model and
+reasoning effort, and a fixed set of `codex exec` flags. The wrapper never
+passes --sandbox or any bypass flag, so the profile is always what governs
+filesystem, network, and write access.
+
+After a run it reads the Codex session rollout and reports the model, effort,
+and permission profile that actually applied, so the caller never has to infer
+them from the output. `show SESSION_ID` does the same for any past session and
+`doctor` checks the installation and sandbox behaviour without calling a model.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import tomllib
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Iterable
+
+DEFAULT_MODEL = "gpt-6-sol"
+ESCALATION_MODEL = "gpt-6-astra"
+DEFAULT_EFFORT = "high"
+EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
+
+# Bumped by /codex-audit after the wrapper is re-checked against a newer Codex.
+VALIDATED_CODEX_VERSION = "0.156.1"
+
+PROFILE_FOR_INTENT = {
+    "review": "review",
+    "adversarial": "review",
+    "consult": "review",
+    "implement": "development",
+}
+
+# Never emitted. Any of these would replace or weaken the permission profile.
+FORBIDDEN_FLAGS = (
+    "--sandbox",
+    "-s",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--dangerously-bypass-hook-trust",
+    "--ignore-rules",
+    "--ignore-user-config",
+    "--ephemeral",
+    "--skip-git-repo-check",
+    "--approve-for-me",
+)
+
+# Flags the wrapper relies on. `doctor` confirms each still appears in --help.
+REQUIRED_EXEC_FLAGS = ("--json", "--output-last-message", "--output-schema", "--model", "--config", "--worktree")
+REQUIRED_REVIEW_FLAGS = ("--json", "--output-last-message", "--model", "--config", "--base", "--uncommitted")
+
+ADVERSARIAL_PROMPT = """\
+You are reviewing a change as an independent, skeptical second reviewer.
+
+Inspect the repository yourself: read the diff, the surrounding code, callers,
+tests, and configuration. Do not take the description of the change at face
+value. Challenge the approach, not just the implementation: question the
+assumptions it depends on, look for failure modes under real-world conditions
+(partial failure, retries, concurrency, rollback, stale state, resource
+exhaustion, version skew), and consider whether a simpler or safer design was
+available.
+
+Report only findings you can ground in specific files or command output. For
+each finding give the location, the concrete claim, the evidence, and a
+suggested direction. Rank by severity: P0 (must fix before shipping),
+P1 (should fix), P2 (worth fixing), P3 (nit or question). If you find nothing
+blocking, say so; do not invent findings to fill the report.
+
+{scope}
+{focus}"""
+
+FINDINGS_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["verdict", "summary", "findings"],
+    "properties": {
+        "verdict": {"type": "string", "enum": ["ship", "fix-first", "rethink"]},
+        "summary": {"type": "string"},
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["title", "severity", "location", "claim", "evidence", "suggested_direction"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+                    "location": {"type": "string"},
+                    "claim": {"type": "string"},
+                    "evidence": {"type": "string"},
+                    "suggested_direction": {"type": "string"},
+                },
+            },
+        },
+    },
+}
+
+
+class DelegateError(Exception):
+    """A usage or environment error the wrapper can explain to the caller."""
+
+
+@dataclass
+class Request:
+    """Everything needed to build one Codex invocation."""
+
+    intent: str
+    cwd: Path
+    model: str = DEFAULT_MODEL
+    effort: str = DEFAULT_EFFORT
+    prompt: str | None = None
+    base: str | None = None
+    uncommitted: bool = False
+    worktree: bool = False
+    session_id: str | None = None
+    write: bool = False
+    extra_args: list[str] = field(default_factory=list)
+
+    @property
+    def profile(self) -> str:
+        if self.intent == "resume":
+            return "development" if self.write else "review"
+        return PROFILE_FOR_INTENT[self.intent]
+
+
+@dataclass
+class RolloutSummary:
+    """What the Codex session file says actually happened."""
+
+    session_id: str | None = None
+    cli_version: str | None = None
+    cwd: str | None = None
+    model: str | None = None
+    effort: str | None = None
+    profile: str | None = None
+    sandbox: str | None = None
+    approval_policy: str | None = None
+    last_message: str | None = None
+    turns: int = 0
+
+
+@dataclass
+class Check:
+    """One doctor check."""
+
+    name: str
+    ok: bool
+    detail: str
+    warning: bool = False
+
+
+# --- Command construction ---------------------------------------------------
+
+
+def config_override(key: str, value: str) -> list[str]:
+    """Return a -c override; the value is quoted so Codex parses it as a TOML string."""
+    return ["-c", f'{key}="{value}"']
+
+
+def build_command(request: Request, output_file: Path, schema_file: Path | None = None) -> list[str]:
+    """Build the codex argv for a request. Prompts are read from stdin, never argv."""
+    if request.effort not in EFFORTS:
+        raise DelegateError(f"effort must be one of {', '.join(EFFORTS)}, not {request.effort!r}")
+    if request.intent == "consult" and not request.model:
+        raise DelegateError("consult requires --model; name the model deliberately")
+    if request.intent == "resume" and not request.session_id:
+        raise DelegateError("resume requires a session id")
+    if request.worktree and request.intent != "implement":
+        raise DelegateError("--worktree only applies to implement")
+    for arg in request.extra_args:
+        if arg.split("=", 1)[0] in FORBIDDEN_FLAGS:
+            raise DelegateError(f"{arg} is not allowed through codex-delegate; it would bypass the permission profile")
+
+    argv = ["codex", "exec"]
+    if request.intent == "review":
+        argv.append("review")
+        argv += ["--base", request.base] if request.base else ["--uncommitted"]
+    elif request.intent == "resume":
+        argv += ["resume", request.session_id]
+
+    argv += config_override("default_permissions", request.profile)
+    argv += config_override("model_reasoning_effort", request.effort)
+    argv += ["--model", request.model, "--json", "--output-last-message", str(output_file)]
+    if schema_file is not None:
+        argv += ["--output-schema", str(schema_file)]
+    if request.worktree:
+        argv.append("--worktree")
+    argv += request.extra_args
+    if request.intent != "review":
+        argv.append("-")  # prompt on stdin
+    return argv
+
+
+def git_output(args: list[str], cwd: Path) -> str:
+    """Run a git command and return stdout, or an empty string if it fails."""
+    result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def describe_scope(request: Request) -> str:
+    """Tell the reviewer which changes are in scope without interpreting them."""
+    if request.base:
+        stat = git_output(["diff", "--stat", f"{request.base}...HEAD"], request.cwd)
+        return (
+            f"Scope: the changes on this branch relative to `{request.base}` "
+            f"(`git diff {request.base}...HEAD`).\n\n{stat}"
+        )
+    stat = git_output(["diff", "--stat", "HEAD"], request.cwd)
+    untracked = git_output(["ls-files", "--others", "--exclude-standard"], request.cwd)
+    parts = ["Scope: the uncommitted changes in the working tree, staged and unstaged, plus untracked files."]
+    if stat:
+        parts.append(stat)
+    if untracked:
+        parts.append("Untracked files:\n" + untracked)
+    return "\n\n".join(parts)
+
+
+def adversarial_prompt(request: Request, focus: str) -> str:
+    """Compose the adversarial review prompt with scope and optional focus text."""
+    focus_block = f"Pay particular attention to: {focus.strip()}" if focus.strip() else ""
+    return ADVERSARIAL_PROMPT.format(scope=describe_scope(request), focus=focus_block).rstrip() + "\n"
+
+
+# --- Running Codex ----------------------------------------------------------
+
+
+@dataclass
+class RunResult:
+    exit_code: int
+    thread_id: str | None
+    errors: list[str]
+    agent_messages: list[str]
+    duration_s: float
+
+
+def parse_event(line: str) -> dict | None:
+    """Parse one JSONL event from `codex exec --json`, ignoring non-JSON noise."""
+    line = line.strip()
+    if not line.startswith("{"):
+        return None
+    try:
+        return json.loads(line)
+    except json.JSONDecodeError:
+        return None
+
+
+def run_codex(argv: list[str], cwd: Path, stdin_text: str | None, verbose: bool = False) -> RunResult:
+    """Run codex, streaming its JSONL events, and collect what the report needs."""
+    started = time.monotonic()
+    process = subprocess.Popen(
+        argv,
+        cwd=cwd,
+        stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=None,  # Codex's own stderr passes straight through
+        text=True,
+    )
+    if stdin_text is not None:
+        assert process.stdin is not None
+        process.stdin.write(stdin_text)
+        process.stdin.close()
+
+    thread_id = None
+    errors: list[str] = []
+    agent_messages: list[str] = []
+    assert process.stdout is not None
+    for line in process.stdout:
+        event = parse_event(line)
+        if event is None:
+            continue
+        if verbose:
+            print(line.rstrip(), file=sys.stderr)
+        kind = event.get("type")
+        if kind == "thread.started":
+            thread_id = event.get("thread_id")
+        elif kind == "error":
+            message = str(event.get("message") or event)
+            errors.append(message)
+            print(f"codex error: {message}", file=sys.stderr)
+        elif kind == "item.completed":
+            item = event.get("item") or {}
+            if item.get("type") == "agent_message" and item.get("text"):
+                agent_messages.append(item["text"])
+    exit_code = process.wait()
+    return RunResult(exit_code, thread_id, errors, agent_messages, time.monotonic() - started)
+
+
+# --- Session rollouts -------------------------------------------------------
+
+
+def codex_home() -> Path:
+    return Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")).expanduser()
+
+
+def find_rollout(session_id: str, home: Path | None = None) -> Path | None:
+    """Locate the rollout file for a session id under CODEX_HOME/sessions."""
+    sessions = (home or codex_home()) / "sessions"
+    if not sessions.is_dir():
+        return None
+    matches = sorted(sessions.glob(f"*/*/*/rollout-*-{session_id}.jsonl"))
+    return matches[-1] if matches else None
+
+
+def summarize_rollout(lines: Iterable[str]) -> RolloutSummary:
+    """Extract model, effort, profile, sandbox, and the last message from rollout records."""
+    summary = RolloutSummary()
+    for line in lines:
+        record = parse_event(line)
+        if record is None:
+            continue
+        payload = record.get("payload") or {}
+        kind = record.get("type")
+        if kind == "session_meta":
+            summary.session_id = payload.get("id") or payload.get("session_id")
+            summary.cli_version = payload.get("cli_version")
+            summary.cwd = payload.get("cwd")
+        elif kind == "turn_context":
+            summary.turns += 1
+            summary.model = payload.get("model")
+            summary.effort = payload.get("effort")
+            summary.approval_policy = payload.get("approval_policy")
+            summary.cwd = payload.get("cwd") or summary.cwd
+            active = payload.get("active_permission_profile")
+            if isinstance(active, dict):
+                summary.profile = active.get("id")
+            elif isinstance(active, str):
+                summary.profile = active
+            sandbox = payload.get("sandbox_policy")
+            if isinstance(sandbox, dict):
+                summary.sandbox = sandbox.get("type")
+        elif kind == "event_msg" and payload.get("type") == "task_complete":
+            summary.last_message = payload.get("last_agent_message") or summary.last_message
+    return summary
+
+
+def load_summary(session_id: str) -> RolloutSummary | None:
+    path = find_rollout(session_id)
+    if path is None:
+        return None
+    with path.open(encoding="utf-8") as handle:
+        return summarize_rollout(handle)
+
+
+# --- Reports ----------------------------------------------------------------
+
+
+def build_report(request: Request, argv: list[str], run: RunResult, last_message: str | None) -> dict:
+    """Combine what was requested with what the rollout says happened."""
+    summary = load_summary(run.thread_id) if run.thread_id else None
+    warnings: list[str] = []
+    if summary is None:
+        warnings.append("session rollout not found; model and profile could not be verified")
+    else:
+        if summary.model and summary.model != request.model:
+            warnings.append(f"model mismatch: requested {request.model}, session ran {summary.model}")
+        if summary.effort and summary.effort != request.effort:
+            warnings.append(f"effort mismatch: requested {request.effort}, session ran {summary.effort}")
+        if summary.profile and summary.profile != request.profile:
+            warnings.append(f"profile mismatch: requested {request.profile}, session used {summary.profile}")
+        if summary.profile is None:
+            warnings.append("session recorded no named permission profile; the sandbox may have fallen back to legacy mode")
+    if run.errors:
+        warnings.extend(f"codex reported: {error}" for error in run.errors)
+
+    message = last_message or summary_last_message(summary) or (run.agent_messages[-1] if run.agent_messages else None)
+    findings = None
+    if request.intent == "adversarial" and message:
+        try:
+            findings = json.loads(message)
+        except json.JSONDecodeError:
+            warnings.append("adversarial output was not valid JSON; showing raw text")
+
+    return {
+        "intent": request.intent,
+        "cwd": str(request.cwd),
+        "model_requested": request.model,
+        "model_actual": summary.model if summary else None,
+        "effort_requested": request.effort,
+        "effort_actual": summary.effort if summary else None,
+        "profile_requested": request.profile,
+        "profile_actual": summary.profile if summary else None,
+        "sandbox": summary.sandbox if summary else None,
+        "approval_policy": summary.approval_policy if summary else None,
+        "cwd_actual": summary.cwd if summary else None,
+        "session_id": run.thread_id,
+        "cli_version": summary.cli_version if summary else None,
+        "exit_code": run.exit_code,
+        "duration_s": round(run.duration_s, 1),
+        "warnings": warnings,
+        "findings": findings,
+        "message": message,
+        "command": argv,
+    }
+
+
+def summary_last_message(summary: RolloutSummary | None) -> str | None:
+    return summary.last_message if summary else None
+
+
+def print_report(report: dict, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(report, indent=2))
+        return
+    header = [
+        f"intent:    {report['intent']}",
+        f"model:     {report['model_requested']} -> {report['model_actual'] or 'unverified'}",
+        f"effort:    {report['effort_requested']} -> {report['effort_actual'] or 'unverified'}",
+        f"profile:   {report['profile_requested']} -> {report['profile_actual'] or 'unverified'}"
+        + (f" ({report['sandbox']})" if report.get("sandbox") else ""),
+        f"session:   {report['session_id'] or 'unknown'}",
+        f"exit:      {report['exit_code']}  ({report['duration_s']}s)",
+    ]
+    if report.get("cwd_actual") and report["cwd_actual"] != report["cwd"]:
+        header.append(f"workspace: {report['cwd_actual']}")
+    for warning in report["warnings"]:
+        header.append(f"WARNING:   {warning}")
+    print("\n".join(header))
+    print("---")
+    if report.get("findings") is not None:
+        print(json.dumps(report["findings"], indent=2))
+    else:
+        print(report["message"] or "(no final message)")
+
+
+def print_summary(summary: RolloutSummary, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(asdict(summary), indent=2))
+        return
+    print(
+        "\n".join(
+            [
+                f"session:   {summary.session_id}",
+                f"model:     {summary.model} ({summary.effort})",
+                f"profile:   {summary.profile} ({summary.sandbox})",
+                f"approval:  {summary.approval_policy}",
+                f"cwd:       {summary.cwd}",
+                f"codex:     {summary.cli_version}",
+                f"turns:     {summary.turns}",
+            ]
+        )
+    )
+    print("---")
+    print(summary.last_message or "(no final message)")
+
+
+# --- Doctor -----------------------------------------------------------------
+
+
+def run_capture(argv: list[str], cwd: Path | None = None, timeout: int = 60) -> subprocess.CompletedProcess:
+    return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+
+
+def check_binary() -> Check:
+    if shutil.which("codex") is None:
+        return Check("codex binary", False, "codex not found on PATH")
+    result = run_capture(["codex", "--version"])
+    version = result.stdout.strip().split()[-1] if result.stdout.strip() else ""
+    if not version:
+        return Check("codex binary", False, f"could not read version: {result.stderr.strip()}")
+    if version != VALIDATED_CODEX_VERSION:
+        return Check(
+            "codex binary",
+            True,
+            f"installed {version}, wrapper validated against {VALIDATED_CODEX_VERSION}; run /codex-audit",
+            warning=True,
+        )
+    return Check("codex binary", True, f"codex {version}")
+
+
+def check_codex_doctor(doctor_json: str) -> Check:
+    """Read Codex's own doctor report for config load and auth status."""
+    try:
+        report = json.loads(doctor_json)
+    except json.JSONDecodeError:
+        return Check("codex doctor", False, "codex doctor --json did not return JSON")
+    checks = report.get("checks") or {}
+    problems = []
+    for check_id in ("config.load", "auth.credentials"):
+        status = (checks.get(check_id) or {}).get("status")
+        if status != "ok":
+            problems.append(f"{check_id}: {status or 'missing'}")
+    if problems:
+        return Check("codex doctor", False, "; ".join(problems))
+    return Check("codex doctor", True, "config loads and auth is configured")
+
+
+def check_models(catalog_text: str) -> Check:
+    try:
+        catalog = json.loads(catalog_text)
+    except json.JSONDecodeError:
+        return Check("model catalog", False, "codex debug models did not return JSON")
+    models = {m.get("slug"): m for m in catalog.get("models", [])}
+    missing = [slug for slug in (DEFAULT_MODEL, ESCALATION_MODEL) if slug not in models]
+    if missing:
+        return Check("model catalog", False, f"missing from catalog: {', '.join(missing)}")
+    for slug in (DEFAULT_MODEL, ESCALATION_MODEL):
+        efforts = {level.get("effort") for level in models[slug].get("supported_reasoning_levels", [])}
+        if DEFAULT_EFFORT not in efforts:
+            return Check("model catalog", False, f"{slug} does not support effort {DEFAULT_EFFORT}")
+    listed = ", ".join(slug for slug, m in models.items() if m.get("visibility") == "list")
+    return Check("model catalog", True, f"{DEFAULT_MODEL} and {ESCALATION_MODEL} available; listed: {listed}")
+
+
+def check_flags(name: str, help_text: str, required: tuple[str, ...]) -> Check:
+    missing = [flag for flag in required if flag not in help_text]
+    if missing:
+        return Check(name, False, f"flags missing from --help: {', '.join(missing)}")
+    return Check(name, True, "all required flags present")
+
+
+def check_config_file(config_text: str) -> Check:
+    try:
+        config = tomllib.loads(config_text)
+    except tomllib.TOMLDecodeError as exc:
+        return Check("config profiles", False, f"config.toml does not parse: {exc}")
+    problems = []
+    if "default_permissions" not in config:
+        problems.append("default_permissions is not set")
+    for legacy in ("sandbox_mode", "sandbox_workspace_write"):
+        if legacy in config:
+            problems.append(f"{legacy} is set and would override permission profiles")
+    profiles = config.get("permissions", {})
+    for name in ("review", "development"):
+        if name not in profiles:
+            problems.append(f"[permissions.{name}] is missing")
+    if problems:
+        return Check("config profiles", False, "; ".join(problems))
+    return Check("config profiles", True, "review and development profiles present, no legacy sandbox keys")
+
+
+@dataclass
+class CanaryCase:
+    profile: str
+    argv: list[str]
+    expect_ok: bool
+    label: str
+
+
+def canary_cases(outside: Path) -> list[CanaryCase]:
+    probe_net = ["python3", "-c", "import urllib.request; urllib.request.urlopen('https://example.com', timeout=5)"]
+    # Codex re-executes its own binary inside the sandbox to load AGENTS.md, so
+    # a profile that blocks the install directory breaks every session at start.
+    codex_binary = str(Path(shutil.which("codex") or "codex").resolve())
+    return [
+        CanaryCase("review", [codex_binary, "--version"], True, "review can exec the codex binary"),
+        CanaryCase("review", ["cat", str(Path.home() / ".codex" / "auth.json")], False, "review cannot read ~/.codex/auth.json"),
+        CanaryCase("review", ["cat", "normal.txt"], True, "review reads workspace files"),
+        CanaryCase("review", ["cat", ".env"], False, "review cannot read .env"),
+        CanaryCase("review", ["touch", "should-not-exist"], False, "review cannot write in workspace"),
+        CanaryCase("review", ["ls", str(Path.home() / ".ssh")], False, "review cannot list ~/.ssh"),
+        CanaryCase("review", ["ls", str(Path.home() / ".aws")], False, "review cannot list ~/.aws"),
+        CanaryCase("review", probe_net, False, "review has no network"),
+        CanaryCase("review", ["git", "log", "--oneline", "-1"], True, "review can run git"),
+        CanaryCase("development", [codex_binary, "--version"], True, "development can exec the codex binary"),
+        CanaryCase("development", ["touch", "written.txt"], True, "development can write in workspace"),
+        CanaryCase("development", ["touch", str(outside / "escaped.txt")], False, "development cannot write outside workspace"),
+        CanaryCase("development", ["cat", ".env"], False, "development cannot read .env"),
+        CanaryCase("development", probe_net, False, "development has no network"),
+    ]
+
+
+def run_canaries() -> list[Check]:
+    """Exercise both profiles with `codex sandbox` on throwaway files under $HOME (not /tmp: that is writable by design)."""
+    root = Path.home() / ".cache" / "codex-delegate" / "canary"
+    repo, outside = root / "repo", root / "outside"
+    if root.exists():
+        shutil.rmtree(root)
+    repo.mkdir(parents=True)
+    outside.mkdir()
+    (repo / ".env").write_text("CANARY=not-a-secret\n")
+    (repo / "normal.txt").write_text("hello\n")
+    git_env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null"}
+    subprocess.run(["git", "init", "-q", "."], cwd=repo, check=True, env=git_env)
+    subprocess.run(
+        ["git", "-c", "user.name=canary", "-c", "user.email=canary@example.invalid", "commit", "-q", "--allow-empty", "-m", "init"],
+        cwd=repo,
+        check=True,
+        env=git_env,
+    )
+    checks = []
+    try:
+        for case in canary_cases(outside):
+            argv = ["codex", *config_override("default_permissions", case.profile), "sandbox", "--", *case.argv]
+            result = run_capture(argv, cwd=repo)
+            ok = (result.returncode == 0) == case.expect_ok
+            detail = "as expected" if ok else f"exit {result.returncode}: {' '.join(argv)}\n{result.stderr.strip()}"
+            checks.append(Check(f"canary: {case.label}", ok, detail))
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    return checks
+
+
+def run_doctor(skip_canary: bool) -> list[Check]:
+    checks = [check_binary()]
+    if not checks[0].ok:
+        return checks
+    checks.append(check_codex_doctor(run_capture(["codex", "doctor", "--json"], timeout=120).stdout))
+    checks.append(check_models(run_capture(["codex", "debug", "models"]).stdout))
+    checks.append(check_flags("codex exec flags", run_capture(["codex", "exec", "--help"]).stdout, REQUIRED_EXEC_FLAGS))
+    checks.append(
+        check_flags("codex exec review flags", run_capture(["codex", "exec", "review", "--help"]).stdout, REQUIRED_REVIEW_FLAGS)
+    )
+    config_path = codex_home() / "config.toml"
+    if config_path.exists():
+        checks.append(check_config_file(config_path.read_text(encoding="utf-8")))
+    else:
+        checks.append(Check("config profiles", False, f"{config_path} does not exist"))
+    if not skip_canary and all(check.ok for check in checks):
+        checks.extend(run_canaries())
+    return checks
+
+
+def print_checks(checks: list[Check]) -> None:
+    for check in checks:
+        mark = "WARN" if check.warning else ("ok" if check.ok else "FAIL")
+        print(f"[{mark:>4}] {check.name}: {check.detail}")
+
+
+# --- CLI --------------------------------------------------------------------
+
+
+def read_prompt(value: str | None) -> str:
+    """Return the prompt text, reading stdin when the value is '-' or absent."""
+    if value is None or value == "-":
+        text = sys.stdin.read()
+        if not text.strip():
+            raise DelegateError("no prompt given (pass it as an argument or on stdin)")
+        return text
+    return value
+
+
+def add_common_options(parser: argparse.ArgumentParser, model_required: bool = False) -> None:
+    parser.add_argument("--model", required=model_required, default=None if model_required else DEFAULT_MODEL,
+                        help=f"Codex model slug (default: {DEFAULT_MODEL}; escalation: {ESCALATION_MODEL})")
+    parser.add_argument("--effort", default=DEFAULT_EFFORT, choices=EFFORTS, help=f"reasoning effort (default: {DEFAULT_EFFORT})")
+    parser.add_argument("--cwd", type=Path, default=None, help="repository to work in (default: current directory)")
+    parser.add_argument("--json", action="store_true", help="print a JSON report instead of text")
+    parser.add_argument("--codex-arg", action="append", default=[], metavar="ARG",
+                        help="extra argument passed to codex exec verbatim, e.g. --codex-arg=--search (repeatable; sandbox and bypass flags are refused)")
+    parser.add_argument("--dry-run", action="store_true", help="print the codex command and exit")
+    parser.add_argument("--verbose", action="store_true", help="echo Codex JSONL events to stderr while running")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="codex-delegate",
+        description=__doc__.split("\n\n")[0],
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Intents and the permission profile they pin:\n"
+            "  review, adversarial, consult -> review      (read-only, no network, secrets denied)\n"
+            "  implement, resume --write    -> development (workspace writes, no network, secrets denied)\n"
+            f"\nDefaults: model {DEFAULT_MODEL}, effort {DEFAULT_EFFORT}. consult requires an explicit --model."
+        ),
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    review = sub.add_parser("review", help="native Codex code review of a branch or the working tree")
+    target = review.add_mutually_exclusive_group()
+    target.add_argument("--base", metavar="REF", help="review the branch against this base ref")
+    target.add_argument("--uncommitted", action="store_true", help="review staged, unstaged, and untracked changes (default)")
+    add_common_options(review)
+
+    adversarial = sub.add_parser("adversarial", help="challenge the design and assumptions behind a change")
+    target = adversarial.add_mutually_exclusive_group()
+    target.add_argument("--base", metavar="REF")
+    target.add_argument("--uncommitted", action="store_true")
+    adversarial.add_argument("focus", nargs="*", help="areas to concentrate on (free text)")
+    add_common_options(adversarial)
+
+    consult = sub.add_parser("consult", help="read-only investigation or opinion; the model must be named")
+    consult.add_argument("prompt", nargs="?", help="question or task; '-' or omitted reads stdin")
+    add_common_options(consult, model_required=True)
+
+    implement = sub.add_parser("implement", help="write-capable task under the development profile")
+    implement.add_argument("prompt", nargs="?", help="task; '-' or omitted reads stdin")
+    implement.add_argument("--worktree", action="store_true", help="run in a new managed git worktree")
+    add_common_options(implement)
+
+    resume = sub.add_parser("resume", help="continue a previous session")
+    resume.add_argument("session_id")
+    resume.add_argument("prompt", nargs="?", help="follow-up; '-' or omitted reads stdin")
+    resume.add_argument("--write", action="store_true", help="use the development profile instead of review")
+    add_common_options(resume)
+
+    show = sub.add_parser("show", help="report model, effort, profile, and last message for a session")
+    show.add_argument("session_id")
+    show.add_argument("--json", action="store_true")
+
+    doctor = sub.add_parser("doctor", help="check the Codex install, config, flags, and sandbox behaviour (no model calls)")
+    doctor.add_argument("--skip-canary", action="store_true", help="skip the sandbox canary runs")
+    return parser
+
+
+def request_from_args(args: argparse.Namespace) -> tuple[Request, str | None]:
+    """Turn parsed arguments into a Request plus the stdin text for Codex."""
+    cwd = (args.cwd or Path.cwd()).resolve()
+    request = Request(
+        intent=args.command,
+        cwd=cwd,
+        model=args.model,
+        effort=args.effort,
+        extra_args=list(args.codex_arg),
+    )
+    stdin_text: str | None = None
+    if args.command in ("review", "adversarial"):
+        request.base = args.base
+        request.uncommitted = not args.base
+    if args.command == "adversarial":
+        stdin_text = adversarial_prompt(request, " ".join(args.focus))
+    elif args.command in ("consult", "implement", "resume"):
+        request.prompt = read_prompt(args.prompt)
+        stdin_text = request.prompt
+    if args.command == "implement":
+        request.worktree = args.worktree
+    if args.command == "resume":
+        request.session_id = args.session_id
+        request.write = args.write
+    return request, stdin_text
+
+
+def run_request(args: argparse.Namespace) -> int:
+    request, stdin_text = request_from_args(args)
+    with tempfile.TemporaryDirectory(prefix="codex-delegate-") as tmp:
+        output_file = Path(tmp) / "last-message.txt"
+        schema_file = None
+        if request.intent == "adversarial":
+            schema_file = Path(tmp) / "findings.schema.json"
+            schema_file.write_text(json.dumps(FINDINGS_SCHEMA))
+        argv = build_command(request, output_file, schema_file)
+        if args.dry_run:
+            print(" ".join(argv))
+            if stdin_text:
+                print("--- stdin ---")
+                print(stdin_text, end="")
+            return 0
+        run = run_codex(argv, request.cwd, stdin_text, verbose=args.verbose)
+        last_message = output_file.read_text(encoding="utf-8") if output_file.exists() else None
+    report = build_report(request, argv, run, last_message)
+    print_report(report, args.json)
+    return run.exit_code
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        if args.command == "show":
+            summary = load_summary(args.session_id)
+            if summary is None:
+                raise DelegateError(f"no rollout found for session {args.session_id}")
+            print_summary(summary, args.json)
+            return 0
+        if args.command == "doctor":
+            checks = run_doctor(args.skip_canary)
+            print_checks(checks)
+            return 0 if all(check.ok for check in checks) else 1
+        return run_request(args)
+    except DelegateError as exc:
+        print(f"codex-delegate: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

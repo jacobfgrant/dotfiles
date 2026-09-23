@@ -5,3 +5,13 @@
 # Our global .gitignore has ".claude/" which would exclude this stow source
 # entirely; re-include the directory here.
 !claude/.claude/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Codex
+
+# The global .gitignore ignores .local/; re-include the codex-delegate source.
+!codex/.local/bin/
