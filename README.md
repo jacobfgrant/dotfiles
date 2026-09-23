@@ -31,8 +31,10 @@
 ### codex/
 
 - `.codex/AGENTS.md` – Codex global conventions and preferences
-- `.codex/personal.config.toml` – Shared Codex profile
+- `.codex/config.toml` – Model, approvals, and permission profiles (`development`, `review`)
 - `.codex/rules/safety.rules` – Command permission rules
+- `.local/bin/codex-delegate` – Runs Codex non-interactively for Claude Code with pinned permissions
+- `tests/` – Unit tests for `codex-delegate` (`.venv/bin/pytest codex/tests`)
 - [Setup and configuration](codex/README.md)
 
 
