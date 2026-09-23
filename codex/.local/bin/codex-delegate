@@ -17,14 +17,19 @@ them from the output. `show SESSION_ID` does the same for any past session and
 
 from __future__ import annotations
 
+import sys
+
+if sys.version_info < (3, 11):
+    sys.exit("codex-delegate needs Python 3.11 or newer")
+
 import argparse
 import datetime as dt
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 import tomllib
@@ -169,6 +174,7 @@ class Check:
     ok: bool
     detail: str
     warning: bool = False
+    skipped: bool = False
 
 
 # --- Command construction ---------------------------------------------------
@@ -300,18 +306,24 @@ def parse_event(line: str) -> dict | None:
 def run_codex(argv: list[str], cwd: Path, stdin_text: str | None, verbose: bool = False) -> RunResult:
     """Run codex, streaming its JSONL events, and collect what the report needs."""
     started = time.monotonic()
-    process = subprocess.Popen(
-        argv,
-        cwd=cwd,
-        stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=None,  # Codex's own stderr passes straight through
-        text=True,
-    )
+    try:
+        process = subprocess.Popen(
+            argv,
+            cwd=cwd,
+            stdin=subprocess.PIPE if stdin_text is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=None,  # Codex's own stderr passes straight through
+            text=True,
+        )
+    except FileNotFoundError:
+        raise DelegateError("codex not found on PATH") from None
     if stdin_text is not None:
         assert process.stdin is not None
-        process.stdin.write(stdin_text)
-        process.stdin.close()
+        try:
+            process.stdin.write(stdin_text)
+            process.stdin.close()
+        except BrokenPipeError:
+            pass  # codex exited before reading the prompt; its exit code and stderr say why
 
     thread_id = None
     errors: list[str] = []
@@ -350,7 +362,7 @@ def find_rollout(session_id: str, home: Path | None = None) -> Path | None:
     sessions = (home or codex_home()) / "sessions"
     if not sessions.is_dir():
         return None
-    matches = sorted(sessions.glob(f"*/*/*/rollout-*-{session_id}.jsonl"))
+    matches = sorted(sessions.glob(f"*/*/*/rollout-????-??-??T??-??-??-{session_id}.jsonl"))
     return matches[-1] if matches else None
 
 
@@ -571,25 +583,34 @@ def print_summary(summary: RolloutSummary, as_json: bool) -> None:
 # --- Doctor -----------------------------------------------------------------
 
 
-def run_capture(argv: list[str], cwd: Path | None = None, timeout: int = 60) -> subprocess.CompletedProcess:
-    return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+def run_capture(argv: list[str], cwd: Path | None = None, timeout: int = 60, env: dict | None = None) -> subprocess.CompletedProcess:
+    """Run a command for its output; a timeout or missing binary becomes a failed result, not a traceback."""
+    try:
+        return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(argv, 124, "", f"timed out after {timeout}s")
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(argv, 127, "", f"{argv[0]} not found")
 
 
-def check_binary() -> Check:
+def codex_version() -> str | None:
+    result = run_capture(["codex", "--version"])
+    return result.stdout.strip().split()[-1] if result.stdout.strip() else None
+
+
+def check_binary(version: str | None) -> Check:
     if shutil.which("codex") is None:
         return Check("codex binary", False, "codex not found on PATH")
-    result = run_capture(["codex", "--version"])
-    version = result.stdout.strip().split()[-1] if result.stdout.strip() else ""
     if not version:
-        return Check("codex binary", False, f"could not read version: {result.stderr.strip()}")
-    if version != VALIDATED_CODEX_VERSION:
-        return Check(
-            "codex binary",
-            True,
-            f"installed {version}, wrapper validated against {VALIDATED_CODEX_VERSION}; run /codex-audit",
-            warning=True,
-        )
-    return Check("codex binary", True, f"codex {version}")
+        return Check("codex binary", False, "could not read codex --version")
+    return Check("codex binary", True, f"codex {version} (wrapper validated against {VALIDATED_CODEX_VERSION})")
+
+
+def check_version_drift(version: str | None, other_checks: list[Check]) -> Check | None:
+    """Only worth a warning when something else failed: Codex ships often and most releases change nothing here."""
+    if version and version != VALIDATED_CODEX_VERSION and not all(check.ok for check in other_checks):
+        return Check("codex version", True, f"{version} differs from validated {VALIDATED_CODEX_VERSION}; run /codex-audit", warning=True)
+    return None
 
 
 def check_codex_doctor(doctor_json: str) -> Check:
@@ -627,7 +648,7 @@ def check_models(catalog_text: str) -> Check:
 
 
 def check_flags(name: str, help_text: str, required: tuple[str, ...]) -> Check:
-    missing = [flag for flag in required if flag not in help_text]
+    missing = [flag for flag in required if not re.search(rf"(?<![\w-]){re.escape(flag)}(?![\w-])", help_text)]
     if missing:
         return Check(name, False, f"flags missing from --help: {', '.join(missing)}")
     return Check(name, True, "all required flags present")
@@ -659,31 +680,37 @@ class CanaryCase:
     argv: list[str]
     expect_ok: bool
     label: str
+    # A denied path that does not exist fails for the wrong reason, so the case
+    # is skipped rather than counted as the sandbox working.
+    requires: Path | None = None
 
 
 def canary_cases(outside: Path) -> list[CanaryCase]:
+    home = Path.home()
+    auth = codex_home() / "auth.json"
+    ssh, aws, library, caches = home / ".ssh", home / ".aws", home / "Library", home / "Library" / "Caches"
     probe_net = ["python3", "-c", "import urllib.request; urllib.request.urlopen('https://example.com', timeout=5)"]
     # Codex re-executes its own binary inside the sandbox to load AGENTS.md, so
     # a profile that blocks the install directory breaks every session at start.
     codex_binary = str(Path(shutil.which("codex") or "codex").resolve())
     return [
         CanaryCase("review", [codex_binary, "--version"], True, "review can exec the codex binary"),
-        CanaryCase("review", ["cat", str(Path.home() / ".codex" / "auth.json")], False, "review cannot read ~/.codex/auth.json"),
+        CanaryCase("review", ["cat", str(auth)], False, "review cannot read codex auth.json", requires=auth),
         CanaryCase("review", ["cat", "normal.txt"], True, "review reads workspace files"),
         CanaryCase("review", ["cat", ".env"], False, "review cannot read .env"),
         CanaryCase("review", ["touch", "should-not-exist"], False, "review cannot write in workspace"),
-        CanaryCase("review", ["ls", str(Path.home() / ".ssh")], False, "review cannot list ~/.ssh"),
-        CanaryCase("review", ["ls", str(Path.home() / ".aws")], False, "review cannot list ~/.aws"),
+        CanaryCase("review", ["ls", str(ssh)], False, "review cannot list ~/.ssh", requires=ssh),
+        CanaryCase("review", ["ls", str(aws)], False, "review cannot list ~/.aws", requires=aws),
         CanaryCase("review", probe_net, False, "review has no network"),
         CanaryCase("review", ["git", "log", "--oneline", "-1"], True, "review can run git"),
         CanaryCase("development", [codex_binary, "--version"], True, "development can exec the codex binary"),
         CanaryCase("development", ["touch", "written.txt"], True, "development can write in workspace"),
         CanaryCase("development", ["touch", str(outside / "escaped.txt")], False, "development cannot write outside workspace"),
         CanaryCase("development", ["cat", ".env"], False, "development cannot read .env"),
-        CanaryCase("development", ["ls", str(Path.home() / ".ssh")], False, "development cannot list ~/.ssh"),
-        CanaryCase("development", ["ls", str(Path.home() / "Library")], False, "development cannot list ~/Library"),
-        CanaryCase("development", ["ls", str(Path.home() / "Library" / "Caches")], True, "development can read ~/Library/Caches"),
-        CanaryCase("development", ["cat", str(Path.home() / ".codex" / "auth.json")], False, "development cannot read ~/.codex/auth.json"),
+        CanaryCase("development", ["ls", str(ssh)], False, "development cannot list ~/.ssh", requires=ssh),
+        CanaryCase("development", ["ls", str(library)], False, "development cannot list ~/Library", requires=library),
+        CanaryCase("development", ["ls", str(caches)], True, "development can read ~/Library/Caches", requires=caches),
+        CanaryCase("development", ["cat", str(auth)], False, "development cannot read codex auth.json", requires=auth),
         CanaryCase("development", probe_net, False, "development has no network"),
     ]
 
@@ -699,20 +726,20 @@ def run_canaries() -> list[Check]:
     (repo / ".env").write_text("CANARY=not-a-secret\n")
     (repo / "normal.txt").write_text("hello\n")
     git_env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null"}
-    subprocess.run(["git", "init", "-q", "."], cwd=repo, check=True, env=git_env)
-    subprocess.run(
-        ["git", "-c", "user.name=canary", "-c", "user.email=canary@example.invalid", "commit", "-q", "--allow-empty", "-m", "init"],
-        cwd=repo,
-        check=True,
-        env=git_env,
-    )
     checks = []
     try:
+        for git_args in (["init", "-q", "."], ["-c", "user.name=canary", "-c", "user.email=canary@example.invalid", "commit", "-q", "--allow-empty", "-m", "init"]):
+            setup = run_capture(["git", *git_args], cwd=repo, env=git_env)
+            if setup.returncode != 0:
+                return [Check("canary setup", False, f"git {' '.join(git_args)} failed: {setup.stderr.strip()}")]
         for case in canary_cases(outside):
+            if case.requires is not None and not case.requires.exists():
+                checks.append(Check(f"canary: {case.label}", True, f"skipped: {case.requires} not present", skipped=True))
+                continue
             argv = ["codex", *config_override("default_permissions", case.profile), "sandbox", "--", *case.argv]
             result = run_capture(argv, cwd=repo)
             ok = (result.returncode == 0) == case.expect_ok
-            detail = "as expected" if ok else f"exit {result.returncode}: {' '.join(argv)}\n{result.stderr.strip()}"
+            detail = "as expected" if ok else f"exit {result.returncode}: {shlex.join(argv)}\n{result.stderr.strip()}"
             checks.append(Check(f"canary: {case.label}", ok, detail))
     finally:
         shutil.rmtree(root, ignore_errors=True)
@@ -720,7 +747,8 @@ def run_canaries() -> list[Check]:
 
 
 def run_doctor(skip_canary: bool) -> list[Check]:
-    checks = [check_binary()]
+    version = codex_version()
+    checks = [check_binary(version)]
     if not checks[0].ok:
         return checks
     checks.append(check_codex_doctor(run_capture(["codex", "doctor", "--json"], timeout=120).stdout))
@@ -736,12 +764,15 @@ def run_doctor(skip_canary: bool) -> list[Check]:
         checks.append(Check("config profiles", False, f"{config_path} does not exist"))
     if not skip_canary and all(check.ok for check in checks):
         checks.extend(run_canaries())
+    drift = check_version_drift(version, checks)
+    if drift is not None:
+        checks.append(drift)
     return checks
 
 
 def print_checks(checks: list[Check]) -> None:
     for check in checks:
-        mark = "WARN" if check.warning else ("ok" if check.ok else "FAIL")
+        mark = "skip" if check.skipped else ("WARN" if check.warning else ("ok" if check.ok else "FAIL"))
         print(f"[{mark:>4}] {check.name}: {check.detail}")
 
 
@@ -843,6 +874,8 @@ def request_from_args(args: argparse.Namespace) -> tuple[Request, str | None]:
     stdin_text: str | None = None
     if args.command in ("review", "adversarial"):
         request.base = args.base
+        if request.base and not git_output(["rev-parse", "--verify", "--quiet", f"{request.base}^{{commit}}"], request.cwd):
+            raise DelegateError(f"base ref {request.base!r} not found in {request.cwd}")
     if args.command == "adversarial":
         stdin_text = adversarial_prompt(request, " ".join(args.focus))
     elif args.command in ("consult", "implement", "resume"):
@@ -865,7 +898,7 @@ def run_request(args: argparse.Namespace) -> int:
             schema_file.write_text(json.dumps(FINDINGS_SCHEMA))
         argv = build_command(request, output_file, schema_file)
         if args.dry_run:
-            print(" ".join(argv))
+            print(shlex.join(argv))
             if stdin_text:
                 print("--- stdin ---")
                 print(stdin_text, end="")

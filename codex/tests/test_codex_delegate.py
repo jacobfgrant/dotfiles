@@ -128,6 +128,16 @@ def test_project_config_that_could_change_the_sandbox_is_refused(tmp_path):
     assert any("allow rule" in p for p in cd.project_config_problems(repo))
 
 
+def test_bad_base_ref_is_rejected_before_running(tmp_path):
+    repo = git_repo(tmp_path / "repo")
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "init"], cwd=repo, check=True)
+    ok = cd.build_parser().parse_args(["review", "--base", "HEAD", "--cwd", str(repo)])
+    assert cd.request_from_args(ok)[0].base == "HEAD"
+    bad = cd.build_parser().parse_args(["review", "--base", "mian", "--cwd", str(repo)])
+    with pytest.raises(cd.DelegateError, match="base ref 'mian' not found"):
+        cd.request_from_args(bad)
+
+
 def test_project_config_is_checked_at_the_git_root_too(tmp_path):
     repo = git_repo(tmp_path / "repo")
     (repo / ".codex").mkdir()
@@ -162,7 +172,7 @@ def rollout_lines(model="gpt-6-sol", effort="high", profile="review", sandbox="r
 
 def write_rollout(day, name, lines):
     day.mkdir(parents=True, exist_ok=True)
-    (day / f"rollout-x-{name}.jsonl").write_text("\n".join(lines))
+    (day / f"rollout-2026-09-22T00-00-00-{name}.jsonl").write_text("\n".join(lines))
 
 
 @pytest.fixture
@@ -181,6 +191,7 @@ def test_summary_reads_model_profile_and_message(sessions):
     assert (summary.model, summary.effort, summary.profile, summary.sandbox) == ("gpt-6-sol", "high", "review", "read-only")
     assert summary.last_message == "done"
     assert cd.load_summary("missing") is None
+    assert cd.load_summary("1") is None, "a partial id must not match a longer one"
 
 
 def test_report_flags_mismatches_and_missing_rollout(sessions):
@@ -304,3 +315,27 @@ def test_resume_runs_in_the_sessions_own_directory(sessions, tmp_path, monkeypat
     args = cd.build_parser().parse_args(["resume", "sess-1", "--cwd", str(tmp_path), "x"])
     req, _ = cd.request_from_args(args)
     assert req.cwd == tmp_path.resolve(), "an explicit --cwd still wins"
+
+
+# --- doctor helpers that guard the config contract ---
+
+
+def test_check_config_file_catches_legacy_sandbox_keys_and_missing_profiles():
+    good = 'default_permissions = "development"\n[permissions.review]\nextends = ":read-only"\n[permissions.development]\nextends = ":workspace"\n'
+    assert cd.check_config_file(good).ok
+    assert "sandbox_mode" in cd.check_config_file('sandbox_mode = "read-only"\n' + good).detail
+    assert "[permissions.review]" in cd.check_config_file('default_permissions = "x"\n[permissions.development]\n').detail
+
+
+def test_check_flags_matches_whole_flags_only():
+    assert cd.check_flags("x", "--model <MODEL>  --json", ("--model", "--json")).ok
+    assert not cd.check_flags("x", "--model-provider", ("--model",)).ok
+
+
+def test_version_drift_only_warns_when_another_check_failed():
+    passing = [cd.Check("a", True, "")]
+    failing = [cd.Check("a", False, "")]
+    assert cd.check_version_drift("9.9.9", passing) is None
+    assert cd.check_version_drift(cd.VALIDATED_CODEX_VERSION, failing) is None
+    drift = cd.check_version_drift("9.9.9", failing)
+    assert drift is not None and drift.warning and "9.9.9" in drift.detail
