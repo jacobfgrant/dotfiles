@@ -53,7 +53,9 @@ References: [profiles](https://learn.chatgpt.com/docs/config-file/config-advance
 | `show SESSION_ID` | none | reads the session file only |
 | `doctor [--skip-canary]` | none | no model calls |
 
-`codex exec review` does its work in a child thread, so for `review` the model and profile are read from the child whose turn ids match the parent session; if no child matches, the report says unverified rather than guessing. Prompts are read from stdin so long prompts never hit argument-length limits. `--json` prints a machine-readable report; `--dry-run` prints the `codex` command without running it; `--codex-arg=--flag` passes extra flags through, except sandbox and bypass flags, which are refused.
+`codex exec review` does its work in a child thread, so for `review` the model and profile are read from the child whose turn ids match the parent session; if no new turn matches, the report says unverified rather than describing an earlier run. Prompts are read from stdin so long prompts never hit argument-length limits. `--json` prints a machine-readable report; `--dry-run` prints the `codex` command without running it. There is deliberately no pass-through to `codex`: hidden aliases such as `--yolo` made a denylist unsafe, and nothing needed it.
+
+Before running, the wrapper refuses a project whose own `.codex/config.toml` sets sandbox, permission, approval, or provider keys, or whose `.codex/rules` contain an `allow` rule. Codex trusts every directory `codex exec` runs in and loads that configuration, which could replace the pinned profile. Codex also appends a `[projects]` trust entry to `~/.codex/config.toml` for each such directory; since that file is a symlink into this repo, review those hunks before committing.
 
 The Claude side is three subagents in `claude/.claude/agents/` (`codex-reviewer`, `codex-consult`, `codex-implementer`) and the `codex-delegate` skill, which holds the contract and the delegation policy: GPT-6 Sol at high by default, GPT-6 Astra only for genuinely hard problems or disagreement, findings treated as peer input.
 

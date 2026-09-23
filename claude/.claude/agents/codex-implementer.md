@@ -32,6 +32,6 @@ State the acceptance criteria and constraints; do not prescribe the implementati
 
 1. Return the `codex-delegate` output verbatim: the header (model, effort, profile, session id, and the worktree path shown as `workspace:`) and Codex's final message.
 2. Then add a short section titled **Next steps** listing exactly what the caller should verify: the worktree path to inspect, the commands to run, and anything Codex reported as blocked or incomplete.
-3. End with the session id so the caller can continue with `codex-delegate resume --write <id>`.
+3. End with the session id so the caller can continue with `codex-delegate resume --write <id>`, which runs in the same worktree.
 
 Do not verify or test the work yourself, do not touch the worktree, and do not merge anything. If the command fails or reports a model or profile mismatch, say so first.

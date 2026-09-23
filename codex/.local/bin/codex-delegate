@@ -4,8 +4,10 @@
 Each subcommand maps an intent (review, adversarial, consult, implement, resume)
 to a Codex permission profile from ~/.codex/config.toml, a default model and
 reasoning effort, and a fixed set of `codex exec` flags. The wrapper never
-passes --sandbox or any bypass flag, so the profile is always what governs
-filesystem, network, and write access.
+passes --sandbox or any bypass flag, accepts no pass-through arguments, and
+refuses to run in a project whose own .codex/ configuration could change the
+sandbox, so the profile is always what governs filesystem, network, and write
+access.
 
 After a run it reads the Codex session rollout and reports the model, effort,
 and permission profile that actually applied, so the caller never has to infer
@@ -16,8 +18,10 @@ them from the output. `show SESSION_ID` does the same for any past session and
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -46,32 +50,21 @@ PROFILE_FOR_INTENT = {
     "implement": "development",
 }
 
-# Never emitted and refused as pass-through. Each one could replace or weaken the
-# pinned permission profile, reroute the model, or widen the writable tree.
-FORBIDDEN_FLAGS = (
-    "--sandbox",
-    "-s",
-    "--config",
-    "-c",
-    "--profile",
-    "-p",
-    "--add-dir",
-    "--cd",
-    "-C",
-    "--enable",
-    "--disable",
-    "--oss",
-    "--local-provider",
-    "--remote",
-    "--remote-auth-token-env",
-    "--dangerously-bypass-approvals-and-sandbox",
-    "--dangerously-bypass-hook-trust",
-    "--ignore-rules",
-    "--ignore-user-config",
-    "--ephemeral",
-    "--skip-git-repo-check",
-    "--approve-for-me",
+# A project's own .codex/config.toml is loaded by Codex (it trusts every
+# directory `codex exec` runs in), so any of these keys there could replace the
+# pinned profile, reroute the model, or change how approvals are decided.
+PROJECT_CONFIG_FORBIDDEN_KEYS = (
+    "sandbox_mode",
+    "sandbox_workspace_write",
+    "default_permissions",
+    "permissions",
+    "approval_policy",
+    "approvals_reviewer",
+    "model_provider",
+    "model_providers",
 )
+# An `allow` rule runs its command outside the sandbox entirely.
+ALLOW_RULE = re.compile(r'decision\s*=\s*"allow"')
 
 # Flags the wrapper relies on. `doctor` confirms each still appears in --help.
 REQUIRED_EXEC_FLAGS = ("--json", "--output-last-message", "--output-schema", "--model", "--config", "--worktree")
@@ -136,13 +129,13 @@ class Request:
     cwd: Path
     model: str | None = DEFAULT_MODEL
     effort: str | None = DEFAULT_EFFORT
-    prompt: str | None = None
     base: str | None = None
-    uncommitted: bool = False
     worktree: bool = False
     session_id: str | None = None
     write: bool = False
-    extra_args: list[str] = field(default_factory=list)
+    # Turn ids the session already had before this run; only a newer turn can
+    # verify a resume, otherwise the report would describe the previous run.
+    prior_turn_ids: set[str] = field(default_factory=set)
 
     @property
     def profile(self) -> str:
@@ -181,14 +174,6 @@ class Check:
 # --- Command construction ---------------------------------------------------
 
 
-def is_forbidden_flag(arg: str) -> bool:
-    """True for a forbidden flag in any spelling: bare, --flag=value, or attached short form (-cKEY=V)."""
-    name = arg.split("=", 1)[0]
-    if name in FORBIDDEN_FLAGS:
-        return True
-    return any(len(flag) == 2 and arg.startswith(flag) and not arg.startswith("--") for flag in FORBIDDEN_FLAGS)
-
-
 def config_override(key: str, value: str) -> list[str]:
     """Return a -c override; the value is quoted so Codex parses it as a TOML string."""
     return ["-c", f'{key}="{value}"']
@@ -206,9 +191,6 @@ def build_command(request: Request, output_file: Path, schema_file: Path | None 
         raise DelegateError("resume requires a session id")
     if request.worktree and request.intent != "implement":
         raise DelegateError("--worktree only applies to implement")
-    for arg in request.extra_args:
-        if is_forbidden_flag(arg):
-            raise DelegateError(f"{arg} is not allowed through codex-delegate; it would bypass the permission profile")
 
     argv = ["codex", "exec"]
     if request.intent == "review":
@@ -227,7 +209,6 @@ def build_command(request: Request, output_file: Path, schema_file: Path | None 
         argv += ["--output-schema", str(schema_file)]
     if request.worktree:
         argv.append("--worktree")
-    argv += request.extra_args
     if request.intent != "review":
         argv.append("-")  # prompt on stdin
     return argv
@@ -237,6 +218,36 @@ def git_output(args: list[str], cwd: Path) -> str:
     """Run a git command and return stdout, or an empty string if it fails."""
     result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def project_config_problems(cwd: Path) -> list[str]:
+    """Reasons a project's own .codex/ directory would undermine the pinned profile.
+
+    Codex loads .codex/config.toml and .codex/rules/*.rules from the project and
+    trusts every directory `codex exec` runs in, so a repository can widen its
+    own sandbox. Refusing up front costs nothing; discovering it from the
+    session file afterwards would be too late.
+    """
+    problems = []
+    roots = [cwd]
+    toplevel = git_output(["rev-parse", "--show-toplevel"], cwd)
+    if toplevel and Path(toplevel).resolve() != cwd:
+        roots.append(Path(toplevel).resolve())
+    for root in roots:
+        config_path = root / ".codex" / "config.toml"
+        if config_path.is_file():
+            try:
+                config = tomllib.loads(config_path.read_text(encoding="utf-8"))
+            except tomllib.TOMLDecodeError as exc:
+                problems.append(f"{config_path} does not parse: {exc}")
+                continue
+            keys = [key for key in PROJECT_CONFIG_FORBIDDEN_KEYS if key in config]
+            if keys:
+                problems.append(f"{config_path} sets {', '.join(keys)}")
+        for rules_path in sorted((root / ".codex" / "rules").glob("*.rules")):
+            if ALLOW_RULE.search(rules_path.read_text(encoding="utf-8")):
+                problems.append(f"{rules_path} contains an allow rule, which runs commands outside the sandbox")
+    return problems
 
 
 def describe_scope(request: Request) -> str:
@@ -343,8 +354,16 @@ def find_rollout(session_id: str, home: Path | None = None) -> Path | None:
     return matches[-1] if matches else None
 
 
+def record_turn_ids(summary: RolloutSummary, payload: dict) -> None:
+    summary.turn_ids.update(t for t in (payload.get("turn_id"), payload.get("root_turn_id")) if t)
+
+
 def summarize_rollout(lines: Iterable[str]) -> RolloutSummary:
-    """Extract model, effort, profile, sandbox, and the last message from rollout records."""
+    """Extract model, effort, profile, sandbox, and the last message from rollout records.
+
+    Every turn_context record overwrites the per-turn fields, so a turn that
+    omits one reports None rather than inheriting the previous turn's value.
+    """
     summary = RolloutSummary()
     for line in lines:
         record = parse_event(line)
@@ -358,21 +377,17 @@ def summarize_rollout(lines: Iterable[str]) -> RolloutSummary:
             summary.cwd = payload.get("cwd")
         elif kind == "turn_context":
             summary.turns += 1
-            summary.turn_ids.update(t for t in (payload.get("turn_id"), payload.get("root_turn_id")) if t)
+            record_turn_ids(summary, payload)
             summary.model = payload.get("model")
             summary.effort = payload.get("effort")
             summary.approval_policy = payload.get("approval_policy")
             summary.cwd = payload.get("cwd") or summary.cwd
             active = payload.get("active_permission_profile")
-            if isinstance(active, dict):
-                summary.profile = active.get("id")
-            elif isinstance(active, str):
-                summary.profile = active
+            summary.profile = active.get("id") if isinstance(active, dict) else (active if isinstance(active, str) else None)
             sandbox = payload.get("sandbox_policy")
-            if isinstance(sandbox, dict):
-                summary.sandbox = sandbox.get("type")
+            summary.sandbox = sandbox.get("type") if isinstance(sandbox, dict) else None
         elif kind == "event_msg" and payload.get("type") in ("task_started", "task_complete"):
-            summary.turn_ids.update(t for t in (payload.get("turn_id"), payload.get("root_turn_id")) if t)
+            record_turn_ids(summary, payload)
             if payload.get("type") == "task_complete":
                 summary.last_message = payload.get("last_agent_message") or summary.last_message
     return summary
@@ -384,46 +399,71 @@ def read_summary(path: Path) -> RolloutSummary:
 
 
 def find_child_rollouts(parent: Path, session_id: str) -> list[Path]:
-    """Rollouts in the same day directory whose session_meta names this session as parent.
+    """Rollouts whose session_meta names this session as parent, oldest first.
 
     `codex exec review` does its work in a subagent thread; the parent thread only
     records the final message, so model and profile have to come from the child.
+    Children land in the day directory of when they started, so the parent's
+    directory and today's are both searched.
     """
+    sessions = parent.parents[3]
+    today = dt.date.today()
+    day_dirs = {parent.parent, sessions / f"{today:%Y}" / f"{today:%m}" / f"{today:%d}"}
     children = []
-    for candidate in sorted(parent.parent.glob("rollout-*.jsonl")):
-        if candidate == parent:
-            continue
-        with candidate.open(encoding="utf-8") as handle:
-            meta = parse_event(handle.readline() or "")
-        payload = (meta or {}).get("payload") or {}
-        if meta and meta.get("type") == "session_meta" and payload.get("parent_thread_id") == session_id:
-            children.append(candidate)
-    return children
+    for day_dir in day_dirs:
+        for candidate in day_dir.glob("rollout-*.jsonl"):
+            if candidate == parent:
+                continue
+            with candidate.open(encoding="utf-8") as handle:
+                meta = parse_event(handle.readline() or "")
+            payload = (meta or {}).get("payload") or {}
+            if meta and meta.get("type") == "session_meta" and payload.get("parent_thread_id") == session_id:
+                children.append(candidate)
+    return sorted(children, key=lambda p: p.name)
 
 
-def load_summary(session_id: str, wait_s: float = 0) -> RolloutSummary | None:
-    """Summarize a session's rollout, waiting up to wait_s for Codex to flush its turn context.
+def merge_child_turn_context(summary: RolloutSummary, parent: Path, session_id: str, new_turn_ids: set[str]) -> None:
+    """Fill the per-turn fields from the newest child thread that ran one of this run's turns."""
+    for child in reversed(find_child_rollouts(parent, session_id)):
+        child_summary = read_summary(child)
+        if child_summary.turns > 0 and child_summary.turn_ids & new_turn_ids:
+            for name in ("model", "effort", "profile", "sandbox", "approval_policy", "turns"):
+                setattr(summary, name, getattr(child_summary, name))
+            summary.last_message = summary.last_message or child_summary.last_message
+            return
+
+
+def clear_turn_fields(summary: RolloutSummary) -> None:
+    """Leave only session-level facts; the per-turn fields could not be verified for this run."""
+    summary.model = summary.effort = summary.profile = summary.sandbox = summary.approval_policy = None
+    summary.turns = 0
+
+
+def load_summary(session_id: str, wait_s: float = 0, prior_turn_ids: set[str] | None = None) -> RolloutSummary | None:
+    """Summarize a session's rollout, waiting up to wait_s for a turn newer than prior_turn_ids.
 
     Codex writes the rollout asynchronously, so right after `codex exec` exits the
     file can still lack the turn_context record that names the model and profile.
-    When the session delegated its work to a child thread, the child's turn
-    context is used and the parent keeps the final message.
+    A resumed session already holds earlier turns, which is why only a turn id
+    not in prior_turn_ids counts. When the session delegated its work to a child
+    thread, the child's turn context is used and the parent keeps the final
+    message. If no new turn appears in time, the per-turn fields are cleared so
+    the report says unverified rather than describing an earlier run.
     """
+    prior = prior_turn_ids or set()
     deadline = time.monotonic() + wait_s
     while True:
         path = find_rollout(session_id)
         summary = read_summary(path) if path is not None else None
-        if summary is not None and summary.turns == 0:
-            # Only a child whose turn ids match this parent's turns can speak for it;
-            # the newest match wins so resumed sessions report their latest run.
-            for child in reversed(find_child_rollouts(path, session_id)):
-                child_summary = read_summary(child)
-                if child_summary.turns > 0 and child_summary.turn_ids & summary.turn_ids:
-                    for name in ("model", "effort", "profile", "sandbox", "approval_policy", "turns"):
-                        setattr(summary, name, getattr(child_summary, name))
-                    summary.last_message = summary.last_message or child_summary.last_message
-                    break
-        if (summary is not None and summary.turns > 0) or time.monotonic() >= deadline:
+        if summary is not None:
+            new_turn_ids = summary.turn_ids - prior
+            if summary.turns == 0 and new_turn_ids:
+                merge_child_turn_context(summary, path, session_id, new_turn_ids)
+            if summary.turns > 0 and new_turn_ids:
+                return summary
+        if time.monotonic() >= deadline:
+            if summary is not None:
+                clear_turn_fields(summary)
             return summary
         time.sleep(0.5)
 
@@ -433,23 +473,25 @@ def load_summary(session_id: str, wait_s: float = 0) -> RolloutSummary | None:
 
 def build_report(request: Request, argv: list[str], run: RunResult, last_message: str | None) -> dict:
     """Combine what was requested with what the rollout says happened."""
-    summary = load_summary(run.thread_id, wait_s=ROLLOUT_FLUSH_WAIT_S) if run.thread_id else None
+    summary = load_summary(run.thread_id, ROLLOUT_FLUSH_WAIT_S, request.prior_turn_ids) if run.thread_id else None
     warnings: list[str] = []
     if summary is None:
-        warnings.append("session rollout not found; model and profile could not be verified")
+        warnings.append("session rollout not found; model, effort, and profile unverified")
+    elif summary.turns == 0:
+        warnings.append("no turn context recorded for this run; model, effort, and profile unverified")
     else:
-        if request.model and summary.model and summary.model != request.model:
+        if request.model and summary.model != request.model:
             warnings.append(f"model mismatch: requested {request.model}, session ran {summary.model}")
-        if request.effort and summary.effort and summary.effort != request.effort:
+        if request.effort and summary.effort != request.effort:
             warnings.append(f"effort mismatch: requested {request.effort}, session ran {summary.effort}")
-        if summary.profile and summary.profile != request.profile:
-            warnings.append(f"profile mismatch: requested {request.profile}, session used {summary.profile}")
+        if summary.profile != request.profile:
+            warnings.append(f"profile mismatch: requested {request.profile}, session used {summary.profile or 'none'}")
         if summary.profile is None:
             warnings.append("session recorded no named permission profile; the sandbox may have fallen back to legacy mode")
     if run.errors:
         warnings.extend(f"codex reported: {error}" for error in run.errors)
 
-    message = last_message or summary_last_message(summary) or (run.agent_messages[-1] if run.agent_messages else None)
+    message = last_message or (summary.last_message if summary else None) or (run.agent_messages[-1] if run.agent_messages else None)
     findings = None
     if request.intent == "adversarial" and message:
         try:
@@ -478,10 +520,6 @@ def build_report(request: Request, argv: list[str], run: RunResult, last_message
         "message": message,
         "command": argv,
     }
-
-
-def summary_last_message(summary: RolloutSummary | None) -> str | None:
-    return summary.last_message if summary else None
 
 
 def print_report(report: dict, as_json: bool) -> None:
@@ -724,14 +762,13 @@ def add_common_options(parser: argparse.ArgumentParser, model_required: bool = F
     if inherit:
         parser.add_argument("--model", default=None, help="Codex model slug (default: the session's own model)")
         parser.add_argument("--effort", default=None, choices=EFFORTS, help="reasoning effort (default: the session's own effort)")
+        parser.add_argument("--cwd", type=Path, default=None, help="repository to work in (default: the session's own directory)")
     else:
         parser.add_argument("--model", required=model_required, default=None if model_required else DEFAULT_MODEL,
                             help=f"Codex model slug (default: {DEFAULT_MODEL}; escalation: {ESCALATION_MODEL})")
         parser.add_argument("--effort", default=DEFAULT_EFFORT, choices=EFFORTS, help=f"reasoning effort (default: {DEFAULT_EFFORT})")
-    parser.add_argument("--cwd", type=Path, default=None, help="repository to work in (default: current directory)")
+        parser.add_argument("--cwd", type=Path, default=None, help="repository to work in (default: current directory)")
     parser.add_argument("--json", action="store_true", help="print a JSON report instead of text")
-    parser.add_argument("--codex-arg", action="append", default=[], metavar="ARG",
-                        help="extra argument passed to codex exec verbatim, e.g. --codex-arg=--search (repeatable; sandbox and bypass flags are refused)")
     parser.add_argument("--dry-run", action="store_true", help="print the codex command and exit")
     parser.add_argument("--verbose", action="store_true", help="echo Codex JSONL events to stderr while running")
 
@@ -772,7 +809,7 @@ def build_parser() -> argparse.ArgumentParser:
     implement.add_argument("--worktree", action="store_true", help="run in a new managed git worktree")
     add_common_options(implement)
 
-    resume = sub.add_parser("resume", help="continue a previous session")
+    resume = sub.add_parser("resume", help="continue a previous session in its own directory")
     resume.add_argument("session_id")
     resume.add_argument("prompt", nargs="?", help="follow-up; '-' or omitted reads stdin")
     resume.add_argument("--write", action="store_true", help="use the development profile instead of review")
@@ -789,33 +826,37 @@ def build_parser() -> argparse.ArgumentParser:
 
 def request_from_args(args: argparse.Namespace) -> tuple[Request, str | None]:
     """Turn parsed arguments into a Request plus the stdin text for Codex."""
-    cwd = (args.cwd or Path.cwd()).resolve()
-    request = Request(
-        intent=args.command,
-        cwd=cwd,
-        model=args.model,
-        effort=args.effort,
-        extra_args=list(args.codex_arg),
-    )
+    request = Request(intent=args.command, cwd=Path.cwd(), model=args.model, effort=args.effort)
+    cwd = args.cwd
+    if args.command == "resume":
+        # A resumed session runs where it started (a worktree, say) unless told
+        # otherwise, and only a turn newer than the ones it already has can verify it.
+        request.session_id = args.session_id
+        request.write = args.write
+        existing = load_summary(args.session_id)
+        if existing is not None:
+            request.prior_turn_ids = set(existing.turn_ids)
+            if cwd is None and existing.cwd and Path(existing.cwd).is_dir():
+                cwd = Path(existing.cwd)
+    request.cwd = (cwd or Path.cwd()).resolve()
+
     stdin_text: str | None = None
     if args.command in ("review", "adversarial"):
         request.base = args.base
-        request.uncommitted = not args.base
     if args.command == "adversarial":
         stdin_text = adversarial_prompt(request, " ".join(args.focus))
     elif args.command in ("consult", "implement", "resume"):
-        request.prompt = read_prompt(args.prompt)
-        stdin_text = request.prompt
+        stdin_text = read_prompt(args.prompt)
     if args.command == "implement":
         request.worktree = args.worktree
-    if args.command == "resume":
-        request.session_id = args.session_id
-        request.write = args.write
     return request, stdin_text
 
 
 def run_request(args: argparse.Namespace) -> int:
     request, stdin_text = request_from_args(args)
+    problems = project_config_problems(request.cwd)
+    if problems:
+        raise DelegateError("refusing to run: the project's .codex/ configuration could change the sandbox\n  " + "\n  ".join(problems))
     with tempfile.TemporaryDirectory(prefix="codex-delegate-") as tmp:
         output_file = Path(tmp) / "last-message.txt"
         schema_file = None

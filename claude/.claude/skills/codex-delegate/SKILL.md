@@ -16,11 +16,13 @@ user-invocable: false
 | `adversarial [--base REF \| --uncommitted] [FOCUS...]` | review | same | gpt-6-sol / high |
 | `consult --model M [PROMPT \| -]` | review | same | model required, high |
 | `implement [--worktree] [PROMPT \| -]` | development | workspace writes, no network, secrets denied | gpt-6-sol / high |
-| `resume SESSION_ID [--write] [PROMPT \| -]` | review, or development with `--write` | as above | inherits |
+| `resume SESSION_ID [--write] [PROMPT \| -]` | review, or development with `--write` | as above | inherits model, effort, and directory |
 | `show SESSION_ID` | none | reads the session file | |
 | `doctor [--skip-canary]` | none | no model calls | |
 
-Common flags: `--model`, `--effort {low,medium,high,xhigh,max,ultra}`, `--cwd DIR`, `--json`, `--dry-run`, `--verbose`, `--codex-arg=--flag` (pass-through; sandbox and bypass flags are refused).
+Common flags: `--model`, `--effort {low,medium,high,xhigh,max,ultra}`, `--cwd DIR`, `--json`, `--dry-run`, `--verbose`. There is no pass-through to `codex`; use the raw fallback below if a flag is genuinely needed.
+
+Before running, the wrapper refuses any project whose own `.codex/config.toml` sets sandbox, permission, approval, or provider keys, or whose `.codex/rules` contain an `allow` rule, because Codex would load them and they could replace the pinned profile. Report the refusal; do not remove the project's files to get past it.
 
 Prompts go on stdin (`-` or omitted) via a heredoc. Never build a long prompt as an argv element.
 
@@ -54,6 +56,7 @@ Each agent runs one command, returns the report verbatim, and adds a labeled syn
 - Treat findings as peer-review input. Verify each one before acting on it, and say which model produced it.
 - Never widen permissions to make a run succeed. If Codex reports a blocked read, write, or network call, surface it and let the user decide.
 - Never edit the same checkout Codex is writing to. `implement` defaults to a worktree for this reason.
+- Codex appends a `[projects]` trust entry to `~/.codex/config.toml` (a symlink into this repo) for every directory it runs in. Never stage those hunks alongside other work; drop entries for throwaway paths.
 
 ## Raw fallback
 
