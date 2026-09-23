@@ -2,3 +2,6 @@
 ^/\.codex/rules
 # Restore the default ignore for README, lost when this file exists.
 ^/README.*
+
+# Tests live in the repository only; never stow them into $HOME.
+^/tests
