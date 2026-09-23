@@ -2,7 +2,7 @@
 name: codex-audit
 description: Audit the codex-delegate wrapper against the installed Codex CLI. Runs doctor, reads Codex release notes since the validated version, checks the flags, config keys, model catalog, and effort names the wrapper assumes, and proposes edits. Run after a Codex update or when doctor warns about the version.
 disable-model-invocation: true
-allowed-tools: Bash(codex-delegate *) Bash(codex --version) Bash(codex debug *) Bash(codex exec --help) Bash(codex exec review --help) Bash(gh api repos/openai/codex/*) Read Grep WebFetch
+allowed-tools: Bash(codex-delegate *) Bash(codex --version) Bash(codex debug models) Bash(codex exec --help) Bash(codex exec review --help) Bash(gh api repos/openai/codex/*) Read Grep WebFetch
 ---
 
 # Audit codex-delegate against the installed Codex
