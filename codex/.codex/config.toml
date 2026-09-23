@@ -95,12 +95,11 @@ glob_scan_max_depth = 8
 notifications = false
 
 # Retained from this machine's existing config. Other checkouts can remove or
-# replace these paths; Codex also records newly trusted projects in this file.
+# replace these paths. Codex appends a trust entry here for every directory it
+# runs in, including codex-delegate runs; drop entries for throwaway paths and
+# never commit [projects] hunks alongside unrelated work.
 [projects."/Users/jacobfgrant/Developer/Git/jacobfgrant/before-tuesday"]
 trust_level = "trusted"
 
 [projects."/Users/jacobfgrant/.dotfiles"]
-trust_level = "trusted"
-
-[projects."/private/tmp/claude-501/-Users-jacobfgrant--dotfiles/0e6e945b-bb94-47f3-b1fe-6fb542444db7/scratchpad/impl-repo"]
 trust_level = "trusted"
