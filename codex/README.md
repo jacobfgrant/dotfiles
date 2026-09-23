@@ -29,7 +29,7 @@ codex execpolicy check --pretty --rules ~/.dotfiles/codex/.codex/rules/safety.ru
 
 Two named profiles:
 
-- `development` (the interactive default): workspace edits, credential directories and secret file globs denied, no network.
+- `development` (the interactive default): workspace edits, no network. Credential stores, secret file globs, Codex's own auth and transcripts, the Docker auth file, and `~/Library` are denied; `~/Library/Caches` stays readable for package caches.
 - `review` (used by `codex-delegate` for read-only intents): extends `:read-only`, no network, credential stores and secret file globs denied. Reads are "home minus credential stores" rather than strictly workspace-only: a blanket `"~" = "deny"` also blocks the `~/.gitconfig` symlink, and a per-file read entry does not override a denied parent for a symlink, so git breaks inside the sandbox.
 
 Authenticated tools may need approval to reach their credential stores. Do not set legacy `sandbox_mode` or `sandbox_workspace_write` alongside permission profiles, and never pass `--sandbox`: any explicit sandbox mode makes Codex discard the profile entirely ([openai/codex#46252](https://github.com/openai/codex/issues/46252)).
@@ -53,7 +53,7 @@ References: [profiles](https://learn.chatgpt.com/docs/config-file/config-advance
 | `show SESSION_ID` | none | reads the session file only |
 | `doctor [--skip-canary]` | none | no model calls |
 
-Prompts are read from stdin so long prompts never hit argument-length limits. `--json` prints a machine-readable report; `--dry-run` prints the `codex` command without running it; `--codex-arg=--flag` passes extra flags through, except sandbox and bypass flags, which are refused.
+`codex exec review` does its work in a child thread, so for `review` the model and profile are read from the child whose turn ids match the parent session; if no child matches, the report says unverified rather than guessing. Prompts are read from stdin so long prompts never hit argument-length limits. `--json` prints a machine-readable report; `--dry-run` prints the `codex` command without running it; `--codex-arg=--flag` passes extra flags through, except sandbox and bypass flags, which are refused.
 
 The Claude side is three subagents in `claude/.claude/agents/` (`codex-reviewer`, `codex-consult`, `codex-implementer`) and the `codex-delegate` skill, which holds the contract and the delegation policy: GPT-6 Sol at high by default, GPT-6 Astra only for genuinely hard problems or disagreement, findings treated as peer input.
 

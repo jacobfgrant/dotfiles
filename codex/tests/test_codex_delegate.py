@@ -78,6 +78,31 @@ def test_resume_profile_follows_write_flag():
     assert 'default_permissions="development"' in writable
 
 
+def test_resume_inherits_model_and_effort_unless_given():
+    inherited = cd.build_command(request(intent="resume", session_id="abc", model=None, effort=None), OUT)
+    assert "--model" not in inherited
+    assert not any(a.startswith("model_reasoning_effort") for a in inherited)
+    explicit = cd.build_command(request(intent="resume", session_id="abc", model="gpt-6-astra", effort="xhigh"), OUT)
+    assert explicit[explicit.index("--model") + 1] == "gpt-6-astra"
+    assert 'model_reasoning_effort="xhigh"' in explicit
+
+
+def test_non_resume_intents_require_model_and_effort():
+    with pytest.raises(cd.DelegateError):
+        cd.build_command(request(intent="implement", effort=None), OUT)
+
+
+def test_inherited_resume_report_has_no_mismatch_warnings(tmp_path, monkeypatch):
+    day = tmp_path / "sessions" / "2026" / "09" / "22"
+    day.mkdir(parents=True)
+    (day / "rollout-x-sess-1.jsonl").write_text("\n".join(rollout_lines(model="gpt-6-astra", effort="xhigh")))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    run = cd.RunResult(exit_code=0, thread_id="sess-1", errors=[], agent_messages=[], duration_s=1.0)
+    report = cd.build_report(request(intent="resume", session_id="sess-1", model=None, effort=None), ["codex"], run, None)
+    assert report["warnings"] == []
+    assert report["model_actual"] == "gpt-6-astra"
+
+
 def test_resume_requires_session_id():
     with pytest.raises(cd.DelegateError, match="session id"):
         cd.build_command(request(intent="resume"), OUT)
@@ -88,15 +113,26 @@ def test_bad_effort_rejected():
         cd.build_command(request(effort="turbo"), OUT)
 
 
-@pytest.mark.parametrize("flag", ["--sandbox", "-s", "--dangerously-bypass-approvals-and-sandbox", "--ignore-rules", "--ephemeral"])
+@pytest.mark.parametrize(
+    "flag",
+    ["--sandbox", "-s", "-c", "--config", "-p", "--profile", "--add-dir", "-C", "--oss",
+     "--dangerously-bypass-approvals-and-sandbox", "--ignore-rules", "--ephemeral"],
+)
 def test_forbidden_pass_through_flags_refused(flag):
     with pytest.raises(cd.DelegateError, match="not allowed"):
         cd.build_command(request(extra_args=[flag, "x"]), OUT)
 
 
-def test_forbidden_flag_with_equals_refused():
+@pytest.mark.parametrize("arg", ["--sandbox=read-only", '-cdefault_permissions="development"', "-sread-only", '--config=default_permissions="x"'])
+def test_forbidden_flag_spellings_refused(arg):
+    """A config override smuggled through pass-through must never reach codex, in any spelling."""
     with pytest.raises(cd.DelegateError):
-        cd.build_command(request(extra_args=["--sandbox=read-only"]), OUT)
+        cd.build_command(request(extra_args=[arg]), OUT)
+
+
+def test_pass_through_cannot_override_profile_after_pin():
+    with pytest.raises(cd.DelegateError):
+        cd.build_command(request(extra_args=["-c", 'default_permissions="development"']), OUT)
 
 
 def test_allowed_pass_through_flag_forwarded():
@@ -104,10 +140,14 @@ def test_allowed_pass_through_flag_forwarded():
     assert "--search" in argv
 
 
-def test_no_forbidden_flag_ever_emitted():
+def test_only_pinned_config_overrides_are_emitted():
+    """The wrapper's own -c overrides are the profile and effort pins; nothing else forbidden appears."""
     for intent, extra in (("review", {}), ("adversarial", {}), ("consult", {}), ("implement", {"worktree": True})):
         argv = cd.build_command(request(intent=intent, **extra), OUT, SCHEMA if intent == "adversarial" else None)
-        assert not any(arg in cd.FORBIDDEN_FLAGS for arg in argv), argv
+        overrides = [argv[i + 1] for i, arg in enumerate(argv) if arg == "-c"]
+        assert all(o.startswith(("default_permissions=", "model_reasoning_effort=")) for o in overrides), argv
+        others = [arg for arg in argv if arg != "-c" and arg in cd.FORBIDDEN_FLAGS]
+        assert others == [], argv
 
 
 # --- event parsing ---
@@ -121,12 +161,13 @@ def test_parse_event_ignores_noise():
 # --- rollout summaries ---
 
 
-def rollout_lines(model="gpt-6-sol", effort="high", profile="review", sandbox="read-only", last="done"):
+def rollout_lines(model="gpt-6-sol", effort="high", profile="review", sandbox="read-only", last="done", turn_id="turn-1"):
     records = [
         {"type": "session_meta", "payload": {"id": "sess-1", "cli_version": "0.156.1", "cwd": "/repo"}},
         {
             "type": "turn_context",
             "payload": {
+                "turn_id": turn_id,
                 "model": model,
                 "effort": effort,
                 "cwd": "/repo",
@@ -187,6 +228,7 @@ def test_report_parses_adversarial_findings(tmp_path, monkeypatch):
 
 def test_report_warns_when_rollout_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    monkeypatch.setattr(cd, "ROLLOUT_FLUSH_WAIT_S", 0)
     run = cd.RunResult(exit_code=1, thread_id="nope", errors=["boom"], agent_messages=["partial"], duration_s=1.0)
     report = cd.build_report(request(), ["codex"], run, None)
     assert report["model_actual"] is None
@@ -236,3 +278,58 @@ def test_check_codex_doctor_reads_config_and_auth_status():
     bad = json.dumps({"checks": {"config.load": {"status": "fail"}, "auth.credentials": {"status": "ok"}}})
     assert "config.load: fail" in cd.check_codex_doctor(bad).detail
     assert not cd.check_codex_doctor("nope").ok
+
+
+def test_load_summary_waits_for_turn_context(tmp_path, monkeypatch):
+    """Right after exit the rollout may hold only session_meta; the wait must give up cleanly on a deadline."""
+    day = tmp_path / "sessions" / "2026" / "09" / "22"
+    day.mkdir(parents=True)
+    (day / "rollout-x-sess-1.jsonl").write_text(rollout_lines()[0])
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    summary = cd.load_summary("sess-1", wait_s=0.6)
+    assert summary is not None and summary.turns == 0 and summary.cli_version == "0.156.1"
+    (day / "rollout-x-sess-1.jsonl").write_text("\n".join(rollout_lines()))
+    assert cd.load_summary("sess-1", wait_s=5).turns == 1
+
+
+def test_load_summary_follows_review_child_thread(tmp_path, monkeypatch):
+    """codex exec review records model and profile only in a subagent thread that names the parent."""
+    day = tmp_path / "sessions" / "2026" / "09" / "22"
+    day.mkdir(parents=True)
+    parent = [
+        json.dumps({"type": "session_meta", "payload": {"id": "parent-1", "cli_version": "0.156.1", "cwd": "/repo"}}),
+        json.dumps({"type": "event_msg", "payload": {"type": "task_started", "turn_id": "turn-B"}}),
+        json.dumps({"type": "event_msg", "payload": {"type": "task_complete", "turn_id": "turn-B", "last_agent_message": "review text"}}),
+    ]
+    (day / "rollout-x-parent-1.jsonl").write_text("\n".join(parent))
+
+    def child(name, **kw):
+        lines = rollout_lines(**kw)
+        lines[0] = json.dumps({"type": "session_meta", "payload": {"id": name, "parent_thread_id": "parent-1", "cli_version": "0.156.1"}})
+        (day / f"rollout-x-{name}.jsonl").write_text("\n".join(lines))
+
+    # An earlier child of the same parent with a different turn, plus an unrelated child, must not be chosen.
+    child("child-1", model="gpt-6-astra", profile="development", turn_id="turn-A")
+    child("child-2", model="gpt-6-sol", profile="review", last="child text", turn_id="turn-B")
+    (day / "rollout-x-other.jsonl").write_text("\n".join(rollout_lines(model="gpt-6-luna", turn_id="turn-B")))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    summary = cd.load_summary("parent-1")
+    assert summary.session_id == "parent-1"
+    assert (summary.model, summary.profile, summary.sandbox, summary.turns) == ("gpt-6-sol", "review", "read-only", 1)
+    assert summary.last_message == "review text"
+
+
+def test_child_thread_without_matching_turn_is_not_attributed(tmp_path, monkeypatch):
+    day = tmp_path / "sessions" / "2026" / "09" / "22"
+    day.mkdir(parents=True)
+    parent = [
+        json.dumps({"type": "session_meta", "payload": {"id": "parent-1", "cli_version": "0.156.1"}}),
+        json.dumps({"type": "event_msg", "payload": {"type": "task_started", "turn_id": "turn-B"}}),
+    ]
+    (day / "rollout-x-parent-1.jsonl").write_text("\n".join(parent))
+    lines = rollout_lines(turn_id="turn-A")
+    lines[0] = json.dumps({"type": "session_meta", "payload": {"id": "child-1", "parent_thread_id": "parent-1"}})
+    (day / "rollout-x-child-1.jsonl").write_text("\n".join(lines))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    summary = cd.load_summary("parent-1")
+    assert summary.model is None and summary.turns == 0

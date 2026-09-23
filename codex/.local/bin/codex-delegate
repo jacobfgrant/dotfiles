@@ -33,6 +33,9 @@ ESCALATION_MODEL = "gpt-6-astra"
 DEFAULT_EFFORT = "high"
 EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 
+# How long to wait after exit for Codex to flush the session's turn context.
+ROLLOUT_FLUSH_WAIT_S = 15
+
 # Bumped by /codex-audit after the wrapper is re-checked against a newer Codex.
 VALIDATED_CODEX_VERSION = "0.156.1"
 
@@ -43,10 +46,24 @@ PROFILE_FOR_INTENT = {
     "implement": "development",
 }
 
-# Never emitted. Any of these would replace or weaken the permission profile.
+# Never emitted and refused as pass-through. Each one could replace or weaken the
+# pinned permission profile, reroute the model, or widen the writable tree.
 FORBIDDEN_FLAGS = (
     "--sandbox",
     "-s",
+    "--config",
+    "-c",
+    "--profile",
+    "-p",
+    "--add-dir",
+    "--cd",
+    "-C",
+    "--enable",
+    "--disable",
+    "--oss",
+    "--local-provider",
+    "--remote",
+    "--remote-auth-token-env",
     "--dangerously-bypass-approvals-and-sandbox",
     "--dangerously-bypass-hook-trust",
     "--ignore-rules",
@@ -117,8 +134,8 @@ class Request:
 
     intent: str
     cwd: Path
-    model: str = DEFAULT_MODEL
-    effort: str = DEFAULT_EFFORT
+    model: str | None = DEFAULT_MODEL
+    effort: str | None = DEFAULT_EFFORT
     prompt: str | None = None
     base: str | None = None
     uncommitted: bool = False
@@ -148,6 +165,7 @@ class RolloutSummary:
     approval_policy: str | None = None
     last_message: str | None = None
     turns: int = 0
+    turn_ids: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -163,6 +181,14 @@ class Check:
 # --- Command construction ---------------------------------------------------
 
 
+def is_forbidden_flag(arg: str) -> bool:
+    """True for a forbidden flag in any spelling: bare, --flag=value, or attached short form (-cKEY=V)."""
+    name = arg.split("=", 1)[0]
+    if name in FORBIDDEN_FLAGS:
+        return True
+    return any(len(flag) == 2 and arg.startswith(flag) and not arg.startswith("--") for flag in FORBIDDEN_FLAGS)
+
+
 def config_override(key: str, value: str) -> list[str]:
     """Return a -c override; the value is quoted so Codex parses it as a TOML string."""
     return ["-c", f'{key}="{value}"']
@@ -170,16 +196,18 @@ def config_override(key: str, value: str) -> list[str]:
 
 def build_command(request: Request, output_file: Path, schema_file: Path | None = None) -> list[str]:
     """Build the codex argv for a request. Prompts are read from stdin, never argv."""
-    if request.effort not in EFFORTS:
+    if request.effort is not None and request.effort not in EFFORTS:
         raise DelegateError(f"effort must be one of {', '.join(EFFORTS)}, not {request.effort!r}")
     if request.intent == "consult" and not request.model:
         raise DelegateError("consult requires --model; name the model deliberately")
+    if request.intent != "resume" and (not request.model or not request.effort):
+        raise DelegateError(f"{request.intent} needs a model and an effort")
     if request.intent == "resume" and not request.session_id:
         raise DelegateError("resume requires a session id")
     if request.worktree and request.intent != "implement":
         raise DelegateError("--worktree only applies to implement")
     for arg in request.extra_args:
-        if arg.split("=", 1)[0] in FORBIDDEN_FLAGS:
+        if is_forbidden_flag(arg):
             raise DelegateError(f"{arg} is not allowed through codex-delegate; it would bypass the permission profile")
 
     argv = ["codex", "exec"]
@@ -190,8 +218,11 @@ def build_command(request: Request, output_file: Path, schema_file: Path | None 
         argv += ["resume", request.session_id]
 
     argv += config_override("default_permissions", request.profile)
-    argv += config_override("model_reasoning_effort", request.effort)
-    argv += ["--model", request.model, "--json", "--output-last-message", str(output_file)]
+    if request.effort:  # resume inherits the session's effort and model unless told otherwise
+        argv += config_override("model_reasoning_effort", request.effort)
+    if request.model:
+        argv += ["--model", request.model]
+    argv += ["--json", "--output-last-message", str(output_file)]
     if schema_file is not None:
         argv += ["--output-schema", str(schema_file)]
     if request.worktree:
@@ -327,6 +358,7 @@ def summarize_rollout(lines: Iterable[str]) -> RolloutSummary:
             summary.cwd = payload.get("cwd")
         elif kind == "turn_context":
             summary.turns += 1
+            summary.turn_ids.update(t for t in (payload.get("turn_id"), payload.get("root_turn_id")) if t)
             summary.model = payload.get("model")
             summary.effort = payload.get("effort")
             summary.approval_policy = payload.get("approval_policy")
@@ -339,17 +371,61 @@ def summarize_rollout(lines: Iterable[str]) -> RolloutSummary:
             sandbox = payload.get("sandbox_policy")
             if isinstance(sandbox, dict):
                 summary.sandbox = sandbox.get("type")
-        elif kind == "event_msg" and payload.get("type") == "task_complete":
-            summary.last_message = payload.get("last_agent_message") or summary.last_message
+        elif kind == "event_msg" and payload.get("type") in ("task_started", "task_complete"):
+            summary.turn_ids.update(t for t in (payload.get("turn_id"), payload.get("root_turn_id")) if t)
+            if payload.get("type") == "task_complete":
+                summary.last_message = payload.get("last_agent_message") or summary.last_message
     return summary
 
 
-def load_summary(session_id: str) -> RolloutSummary | None:
-    path = find_rollout(session_id)
-    if path is None:
-        return None
+def read_summary(path: Path) -> RolloutSummary:
     with path.open(encoding="utf-8") as handle:
         return summarize_rollout(handle)
+
+
+def find_child_rollouts(parent: Path, session_id: str) -> list[Path]:
+    """Rollouts in the same day directory whose session_meta names this session as parent.
+
+    `codex exec review` does its work in a subagent thread; the parent thread only
+    records the final message, so model and profile have to come from the child.
+    """
+    children = []
+    for candidate in sorted(parent.parent.glob("rollout-*.jsonl")):
+        if candidate == parent:
+            continue
+        with candidate.open(encoding="utf-8") as handle:
+            meta = parse_event(handle.readline() or "")
+        payload = (meta or {}).get("payload") or {}
+        if meta and meta.get("type") == "session_meta" and payload.get("parent_thread_id") == session_id:
+            children.append(candidate)
+    return children
+
+
+def load_summary(session_id: str, wait_s: float = 0) -> RolloutSummary | None:
+    """Summarize a session's rollout, waiting up to wait_s for Codex to flush its turn context.
+
+    Codex writes the rollout asynchronously, so right after `codex exec` exits the
+    file can still lack the turn_context record that names the model and profile.
+    When the session delegated its work to a child thread, the child's turn
+    context is used and the parent keeps the final message.
+    """
+    deadline = time.monotonic() + wait_s
+    while True:
+        path = find_rollout(session_id)
+        summary = read_summary(path) if path is not None else None
+        if summary is not None and summary.turns == 0:
+            # Only a child whose turn ids match this parent's turns can speak for it;
+            # the newest match wins so resumed sessions report their latest run.
+            for child in reversed(find_child_rollouts(path, session_id)):
+                child_summary = read_summary(child)
+                if child_summary.turns > 0 and child_summary.turn_ids & summary.turn_ids:
+                    for name in ("model", "effort", "profile", "sandbox", "approval_policy", "turns"):
+                        setattr(summary, name, getattr(child_summary, name))
+                    summary.last_message = summary.last_message or child_summary.last_message
+                    break
+        if (summary is not None and summary.turns > 0) or time.monotonic() >= deadline:
+            return summary
+        time.sleep(0.5)
 
 
 # --- Reports ----------------------------------------------------------------
@@ -357,14 +433,14 @@ def load_summary(session_id: str) -> RolloutSummary | None:
 
 def build_report(request: Request, argv: list[str], run: RunResult, last_message: str | None) -> dict:
     """Combine what was requested with what the rollout says happened."""
-    summary = load_summary(run.thread_id) if run.thread_id else None
+    summary = load_summary(run.thread_id, wait_s=ROLLOUT_FLUSH_WAIT_S) if run.thread_id else None
     warnings: list[str] = []
     if summary is None:
         warnings.append("session rollout not found; model and profile could not be verified")
     else:
-        if summary.model and summary.model != request.model:
+        if request.model and summary.model and summary.model != request.model:
             warnings.append(f"model mismatch: requested {request.model}, session ran {summary.model}")
-        if summary.effort and summary.effort != request.effort:
+        if request.effort and summary.effort and summary.effort != request.effort:
             warnings.append(f"effort mismatch: requested {request.effort}, session ran {summary.effort}")
         if summary.profile and summary.profile != request.profile:
             warnings.append(f"profile mismatch: requested {request.profile}, session used {summary.profile}")
@@ -414,8 +490,8 @@ def print_report(report: dict, as_json: bool) -> None:
         return
     header = [
         f"intent:    {report['intent']}",
-        f"model:     {report['model_requested']} -> {report['model_actual'] or 'unverified'}",
-        f"effort:    {report['effort_requested']} -> {report['effort_actual'] or 'unverified'}",
+        f"model:     {report['model_requested'] or 'inherited'} -> {report['model_actual'] or 'unverified'}",
+        f"effort:    {report['effort_requested'] or 'inherited'} -> {report['effort_actual'] or 'unverified'}",
         f"profile:   {report['profile_requested']} -> {report['profile_actual'] or 'unverified'}"
         + (f" ({report['sandbox']})" if report.get("sandbox") else ""),
         f"session:   {report['session_id'] or 'unknown'}",
@@ -435,7 +511,7 @@ def print_report(report: dict, as_json: bool) -> None:
 
 def print_summary(summary: RolloutSummary, as_json: bool) -> None:
     if as_json:
-        print(json.dumps(asdict(summary), indent=2))
+        print(json.dumps({**asdict(summary), "turn_ids": sorted(summary.turn_ids)}, indent=2))
         return
     print(
         "\n".join(
@@ -566,17 +642,21 @@ def canary_cases(outside: Path) -> list[CanaryCase]:
         CanaryCase("development", ["touch", "written.txt"], True, "development can write in workspace"),
         CanaryCase("development", ["touch", str(outside / "escaped.txt")], False, "development cannot write outside workspace"),
         CanaryCase("development", ["cat", ".env"], False, "development cannot read .env"),
+        CanaryCase("development", ["ls", str(Path.home() / ".ssh")], False, "development cannot list ~/.ssh"),
+        CanaryCase("development", ["ls", str(Path.home() / "Library")], False, "development cannot list ~/Library"),
+        CanaryCase("development", ["ls", str(Path.home() / "Library" / "Caches")], True, "development can read ~/Library/Caches"),
+        CanaryCase("development", ["cat", str(Path.home() / ".codex" / "auth.json")], False, "development cannot read ~/.codex/auth.json"),
         CanaryCase("development", probe_net, False, "development has no network"),
     ]
 
 
 def run_canaries() -> list[Check]:
     """Exercise both profiles with `codex sandbox` on throwaway files under $HOME (not /tmp: that is writable by design)."""
-    root = Path.home() / ".cache" / "codex-delegate" / "canary"
+    parent = Path.home() / ".cache" / "codex-delegate"
+    parent.mkdir(parents=True, exist_ok=True)
+    root = Path(tempfile.mkdtemp(prefix="canary-", dir=parent))
     repo, outside = root / "repo", root / "outside"
-    if root.exists():
-        shutil.rmtree(root)
-    repo.mkdir(parents=True)
+    repo.mkdir()
     outside.mkdir()
     (repo / ".env").write_text("CANARY=not-a-secret\n")
     (repo / "normal.txt").write_text("hello\n")
@@ -640,10 +720,14 @@ def read_prompt(value: str | None) -> str:
     return value
 
 
-def add_common_options(parser: argparse.ArgumentParser, model_required: bool = False) -> None:
-    parser.add_argument("--model", required=model_required, default=None if model_required else DEFAULT_MODEL,
-                        help=f"Codex model slug (default: {DEFAULT_MODEL}; escalation: {ESCALATION_MODEL})")
-    parser.add_argument("--effort", default=DEFAULT_EFFORT, choices=EFFORTS, help=f"reasoning effort (default: {DEFAULT_EFFORT})")
+def add_common_options(parser: argparse.ArgumentParser, model_required: bool = False, inherit: bool = False) -> None:
+    if inherit:
+        parser.add_argument("--model", default=None, help="Codex model slug (default: the session's own model)")
+        parser.add_argument("--effort", default=None, choices=EFFORTS, help="reasoning effort (default: the session's own effort)")
+    else:
+        parser.add_argument("--model", required=model_required, default=None if model_required else DEFAULT_MODEL,
+                            help=f"Codex model slug (default: {DEFAULT_MODEL}; escalation: {ESCALATION_MODEL})")
+        parser.add_argument("--effort", default=DEFAULT_EFFORT, choices=EFFORTS, help=f"reasoning effort (default: {DEFAULT_EFFORT})")
     parser.add_argument("--cwd", type=Path, default=None, help="repository to work in (default: current directory)")
     parser.add_argument("--json", action="store_true", help="print a JSON report instead of text")
     parser.add_argument("--codex-arg", action="append", default=[], metavar="ARG",
@@ -692,7 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     resume.add_argument("session_id")
     resume.add_argument("prompt", nargs="?", help="follow-up; '-' or omitted reads stdin")
     resume.add_argument("--write", action="store_true", help="use the development profile instead of review")
-    add_common_options(resume)
+    add_common_options(resume, inherit=True)
 
     show = sub.add_parser("show", help="report model, effort, profile, and last message for a session")
     show.add_argument("session_id")
