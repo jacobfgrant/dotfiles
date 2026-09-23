@@ -12,7 +12,7 @@ Source of truth for the wrapper: `~/.dotfiles/codex/.local/bin/codex-delegate`. 
 ## Steps
 
 1. Run `codex-delegate doctor`. Note every FAIL and skip. A FAIL is a bug to fix now; the version line shows how far the installed Codex is from the validated one, which the rest of this audit resolves.
-2. Read the wrapper's constants: `VALIDATED_CODEX_VERSION`, `DEFAULT_MODEL`, `ESCALATION_MODEL`, `EFFORTS`, `FORBIDDEN_FLAGS`, `REQUIRED_EXEC_FLAGS`, `REQUIRED_REVIEW_FLAGS`, `PROFILE_FOR_INTENT`, and the `summarize_rollout` field names (`turn_context.model`, `effort`, `active_permission_profile.id`, `sandbox_policy.type`, `session_meta.cli_version`, `task_complete.last_agent_message`).
+2. Read the wrapper's constants: `VALIDATED_CODEX_VERSION`, `DEFAULT_MODEL`, `ESCALATION_MODEL`, `EFFORTS`, `PROJECT_CONFIG_FORBIDDEN_KEYS`, `REQUIRED_EXEC_FLAGS`, `REQUIRED_REVIEW_FLAGS`, `PROFILE_FOR_INTENT`, and the `summarize_rollout` field names (`turn_context.model`, `effort`, `active_permission_profile.id`, `sandbox_policy.type`, `session_meta.cli_version`, `task_complete.last_agent_message`).
 3. List Codex releases from the validated version to the installed one:
 
    ```bash
@@ -20,7 +20,7 @@ Source of truth for the wrapper: `~/.dotfiles/codex/.local/bin/codex-delegate`. 
    ```
 
    Stop at the validated tag; raise `per_page` only if it is not in the first page. Skim for: renamed or removed `codex exec` flags, changes to permission profiles or `default_permissions`, sandbox behaviour, session rollout format, model retirements, effort levels, and anything about `--sandbox` precedence.
-4. Compare `codex exec --help` and `codex exec review --help` against `REQUIRED_EXEC_FLAGS` and `REQUIRED_REVIEW_FLAGS`, and confirm nothing in `FORBIDDEN_FLAGS` has been renamed into something the wrapper no longer catches.
+4. Compare `codex exec --help` and `codex exec review --help` against `REQUIRED_EXEC_FLAGS` and `REQUIRED_REVIEW_FLAGS`. Check the config reference for new project-level keys that could affect the sandbox, approvals, or the model provider; any such key belongs in `PROJECT_CONFIG_FORBIDDEN_KEYS`.
 5. Compare `codex debug models` against `DEFAULT_MODEL`, `ESCALATION_MODEL`, and `EFFORTS`. Flag retirements (`upgrade.retirement_at`) and new flagship models.
 6. Find the newest session file under `~/.codex/sessions/` (Glob `**/rollout-*.jsonl`) and compare it against the field names in step 2. Use `codex-delegate show <id>` on it; every header line should be populated.
 7. Re-read the permissions docs (https://learn.chatgpt.com/docs/permissions) for new profile capabilities that would let the `review` profile be tighter, such as a working way to deny all of `~` while keeping the workspace and gitconfig readable.
