@@ -55,7 +55,7 @@ Each agent runs one command, returns the report verbatim, and adds a short evide
 ## Policy
 
 - GPT-6 Sol at high is the default for everything. Escalate to `gpt-6-astra` only for genuinely hard or ambiguous problems, or when Claude and Sol disagree. Astra shares the usage pool and consumes it roughly twice as fast. Do not use `max` or `ultra` unless asked.
-- Give Codex scope and concerns, not conclusions. Anchoring the reviewer on Claude's framing defeats the purpose.
+- Give Codex scope and concerns, not conclusions. Anchoring the reviewer on Claude's framing defeats the purpose. Decisions already made are different: a deliberate product or design choice the user has settled is a fact, and stating it as focus text ("deliberate, not findings: ...") cuts noise without anchoring the review.
 - Treat findings as peer-review input. Verify each one before acting on it, and say which model produced it.
 - Never widen permissions to make a run succeed. If Codex reports a blocked read, write, or network call, surface it and let the user decide.
 - Do not edit a checkout while Codex is writing to it. If work must continue in parallel, ask the implementer for `--worktree`.

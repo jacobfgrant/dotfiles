@@ -26,7 +26,7 @@ codex-delegate adversarial --base <ref> "retries, idempotency, and rollback"
 codex-delegate review --uncommitted
 ```
 
-Quote focus text so shell metacharacters in it do nothing. Add `--cwd <path>` if the prompt names a repository other than the current directory.
+Quote focus text so shell metacharacters in it do nothing. If the prompt names decisions the user has already made deliberately, pass them through in the focus text as `Deliberate, not findings: ...` so Codex does not report them; state only what the prompt gave you, not your own reading of the code. Add `--cwd <path>` if the prompt names a repository other than the current directory.
 
 ## Report
 

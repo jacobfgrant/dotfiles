@@ -1,13 +1,13 @@
 {
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
   "env": {
     "AWS_CONFIG_FILE": "~/.aws/agent-config",
     "AWS_PROFILE": "read",
     "AWS_SHARED_CREDENTIALS_FILE": "~/.aws/agent-credentials",
     "DISABLE_AUTOUPDATER": "1"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
   },
   "permissions": {
     "allow": [
@@ -177,5 +177,10 @@
   "model": "fable[1m]",
   "effortLevel": "high",
   "tui": "fullscreen",
-  "preferredNotifChannel": "notifications_disabled"
+  "preferredNotifChannel": "notifications_disabled",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    }
+  }
 }

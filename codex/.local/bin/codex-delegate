@@ -89,8 +89,12 @@ available.
 Report only findings you can ground in specific files or command output. For
 each finding give the location, the concrete claim, the evidence, and a
 suggested direction. Rank by severity: P0 (must fix before shipping),
-P1 (should fix), P2 (worth fixing), P3 (nit or question). If you find nothing
-blocking, say so; do not invent findings to fill the report.
+P1 (should fix), P2 (worth fixing), P3 (nit or question). Severity follows
+demonstrated impact under realistic use, not how surprising the code looks.
+A choice the request lists as deliberate is not a finding, though a concrete
+consequence of it the author may not have foreseen is, at P3. A verdict of
+fix-first needs an evidenced P0 or P1. If you find nothing blocking, say so;
+do not invent findings to fill the report.
 
 {scope}
 {focus}"""
