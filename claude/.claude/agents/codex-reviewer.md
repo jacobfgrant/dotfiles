@@ -18,7 +18,7 @@ Scope comes from the prompt: `--base <ref>` for a branch review, otherwise the u
 
 ## Run it
 
-One `codex-delegate` invocation, run in the background so a long review is not cut off by the tool timeout, then read its output when it finishes:
+One `codex-delegate` invocation, started with the Bash tool's `run_in_background` option so a long review is not cut off by the tool timeout. The harness notifies you when it finishes and hands you its output; wait for that notification and do not end your turn before it arrives. Do not background it yourself with `&` or `nohup`, do not poll with sleep loops or sentinel files, and do not redirect its output to a file. The wrapper prints `session: <id>` on stderr as soon as Codex starts, so an interrupted run still leaves an id.
 
 ```bash
 codex-delegate review --base <ref>
