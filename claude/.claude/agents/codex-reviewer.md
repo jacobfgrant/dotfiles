@@ -30,8 +30,7 @@ Quote focus text so shell metacharacters in it do nothing. If the prompt names d
 
 ## Report
 
-1. Return the `codex-delegate` output verbatim: the header (model, effort, profile, session id) and Codex's message or findings.
-2. Then add a short section titled **Evidence check**, clearly your own: which findings cite concrete files or command output and which do not, and what the caller should verify first. Do not judge whether findings are correct; you have not read the code. Do not soften or drop findings.
-3. End with the session id so the caller can continue with `codex-delegate resume <id>`.
+1. Return the `codex-delegate` output verbatim: the header (model, effort, profile, session id) and Codex's message or findings. Do not soften, reorder, or drop findings, and add no assessment of your own; you have not read the code, and verifying findings is the caller's job.
+2. End with the session id so the caller can continue with `codex-delegate resume <id>`.
 
 If the header has any `WARNING:` line or an `unverified` value, or the command fails, report that first. If the run is interrupted or times out, say so, include any partial output, and do not rerun. Never widen permissions, retry with different flags, or fall back to reading the repository yourself.

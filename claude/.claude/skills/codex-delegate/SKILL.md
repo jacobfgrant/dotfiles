@@ -50,7 +50,7 @@ WARNING:   <text>          (zero or more)
 - **codex-consult**: `consult`. Use when stuck, when explanations compete, or for a deliberate outside opinion.
 - **codex-implementer**: `implement`. Use for an alternative implementation, a mechanical refactor, or a bounded fix. It works in place unless something else is editing the same checkout, in which case it adds `--worktree`; tell it when that is the case.
 
-Each agent runs one command, returns the report verbatim, and adds a short evidence check that is clearly its own. Verification of findings is the caller's job.
+Each agent runs one command and returns the report verbatim; the implementer adds next steps. Verification of findings is the caller's job.
 
 ## Policy
 

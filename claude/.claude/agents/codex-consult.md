@@ -25,8 +25,7 @@ Give Codex the facts and the question, not the conclusion you want confirmed. Ad
 
 ## Report
 
-1. Return the `codex-delegate` output verbatim: the header (model, effort, profile, session id) and Codex's answer.
-2. Then add a short section titled **Evidence check**, clearly your own: which parts of the answer rest on things Codex inspected and which are reasoning alone, and what the caller should check before acting on it. Do not judge whether the answer is right; you have not investigated.
-3. End with the session id so the caller can continue with `codex-delegate resume <id>`.
+1. Return the `codex-delegate` output verbatim: the header (model, effort, profile, session id) and Codex's answer. Add no assessment of your own; you have not investigated, and checking the answer is the caller's job.
+2. End with the session id so the caller can continue with `codex-delegate resume <id>`.
 
 If the header has any `WARNING:` line or an `unverified` value, or the command fails, report that first. If the run is interrupted or times out, say so, include any partial output, and do not rerun. Never widen permissions, retry with different flags, or answer the question yourself instead.
