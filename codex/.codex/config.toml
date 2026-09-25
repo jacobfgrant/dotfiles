@@ -96,13 +96,9 @@ glob_scan_max_depth = 8
 [tui]
 notifications = false
 
-# Retained from this machine's existing config. Other checkouts can remove or
-# replace these paths. Only trusted directories load their own .codex/ config
-# and rules; `codex exec` does not add entries, but interactive `codex` can.
+# Trusted project directories are below. Only trusted directories load their
+# own .codex/ config and rules; `codex exec` does not add entries, but
+# interactive `codex` can.
+# 
 # Drop entries for throwaway paths and never commit [projects] hunks alongside
 # unrelated work.
-[projects."/Users/jacobfgrant/Developer/Git/jacobfgrant/before-tuesday"]
-trust_level = "trusted"
-
-[projects."/Users/jacobfgrant/.dotfiles"]
-trust_level = "trusted"
