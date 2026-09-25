@@ -46,7 +46,7 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 ROLLOUT_FLUSH_WAIT_S = 15
 
 # Bumped by /codex-audit after the wrapper is re-checked against a newer Codex.
-VALIDATED_CODEX_VERSION = "0.156.1"
+VALIDATED_CODEX_VERSION = "0.157.0"
 
 PROFILE_FOR_INTENT = {
     "review": "review",
@@ -55,9 +55,9 @@ PROFILE_FOR_INTENT = {
     "implement": "development",
 }
 
-# A project's own .codex/config.toml is loaded by Codex (it trusts every
-# directory `codex exec` runs in), so any of these keys there could replace the
-# pinned profile, reroute the model, or change how approvals are decided.
+# A project's own .codex/config.toml is loaded by Codex once the directory is
+# trusted in [projects], so any of these keys there could replace the pinned
+# profile, reroute the model, or change how approvals are decided.
 PROJECT_CONFIG_FORBIDDEN_KEYS = (
     "sandbox_mode",
     "sandbox_workspace_write",
@@ -67,6 +67,7 @@ PROJECT_CONFIG_FORBIDDEN_KEYS = (
     "approvals_reviewer",
     "model_provider",
     "model_providers",
+    "mcp_servers",
 )
 # An `allow` rule runs its command outside the sandbox entirely.
 ALLOW_RULE = re.compile(r'decision\s*=\s*"allow"')
@@ -233,9 +234,9 @@ def git_output(args: list[str], cwd: Path) -> str:
 def project_config_problems(cwd: Path) -> list[str]:
     """Reasons a project's own .codex/ directory would undermine the pinned profile.
 
-    Codex loads .codex/config.toml and .codex/rules/*.rules from the project and
-    trusts every directory `codex exec` runs in, so a repository can widen its
-    own sandbox. Refusing up front costs nothing; discovering it from the
+    Codex loads .codex/config.toml and .codex/rules/*.rules from a project that
+    is trusted in [projects], so a trusted repository can widen its own
+    sandbox. Refusing up front costs nothing; discovering it from the
     session file afterwards would be too late.
     """
     problems = []
