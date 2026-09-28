@@ -73,6 +73,7 @@ The **codex-implementer** agent runs `implement` for an alternative implementati
 ## Policy
 
 - GPT-6 Sol at high is the default for everything. Escalate to `gpt-6-astra` only for genuinely hard or ambiguous problems, or when Claude and Sol disagree. Astra shares the usage pool and consumes it roughly twice as fast. Do not use `max` or `ultra` unless asked.
+- Being right matters more than being cheap, so reviews and opinions never drop below Sol. `gpt-6-luna` is for cheap, checkable work, mostly testing: smoke-testing a prompt, a classification run, a quick factual check. Pass `--model gpt-6-luna` explicitly, usually with `--effort low`.
 - Give Codex scope and concerns, not conclusions. Anchoring the reviewer on Claude's framing defeats the purpose. Decisions already made are different: a deliberate product or design choice the user has settled is a fact, and stating it as focus text ("deliberate, not findings: ...") cuts noise without anchoring the review. Name the choice, not its consequences: "the palette hues are deliberate" leaves contrast and accessibility in scope, where "the colour values are deliberate" reads as exempting them too.
 - Treat findings as peer-review input. Verify each one before acting on it, and say which model produced it.
 - Never widen permissions to make a run succeed. If Codex reports a blocked read, write, or network call, surface it and let the user decide.
