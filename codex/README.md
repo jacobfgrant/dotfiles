@@ -46,7 +46,7 @@ References: [profiles](https://learn.chatgpt.com/docs/config-file/config-advance
 | Subcommand | Profile | Default model / effort |
 |---|---|---|
 | `review [--base REF \| --uncommitted]` | `review` | gpt-6-sol / high |
-| `adversarial [--base REF \| --uncommitted] [FOCUS...]` | `review` | gpt-6-sol / high |
+| `adversarial [--base REF \| --uncommitted] [FOCUS... \| -]` | `review` | gpt-6-sol / high |
 | `consult --model M [PROMPT \| -]` | `review` | model required / high |
 | `implement [--worktree] [PROMPT \| -]` | `development` | gpt-6-sol / high |
 | `resume SESSION_ID [--write] [PROMPT \| -]` | `review`, or `development` with `--write` | inherits |

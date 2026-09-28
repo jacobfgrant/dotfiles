@@ -796,6 +796,16 @@ def read_prompt(value: str | None) -> str:
     return value
 
 
+def read_focus(words: list[str]) -> str:
+    """Return adversarial focus text, reading stdin only when the sole word is '-'."""
+    if words == ["-"]:
+        text = sys.stdin.read()
+        if not text.strip():
+            raise DelegateError("'-' given but no focus text on stdin")
+        return text
+    return " ".join(words)
+
+
 def add_common_options(parser: argparse.ArgumentParser, model_required: bool = False, inherit: bool = False) -> None:
     if inherit:
         parser.add_argument("--model", default=None, help="Codex model slug (default: the session's own model)")
@@ -835,7 +845,7 @@ def build_parser() -> argparse.ArgumentParser:
     target = adversarial.add_mutually_exclusive_group()
     target.add_argument("--base", metavar="REF")
     target.add_argument("--uncommitted", action="store_true")
-    adversarial.add_argument("focus", nargs="*", help="areas to concentrate on (free text)")
+    adversarial.add_argument("focus", nargs="*", help="areas to concentrate on (free text); '-' reads stdin")
     add_common_options(adversarial)
 
     consult = sub.add_parser("consult", help="read-only investigation or opinion; the model must be named")
@@ -884,7 +894,7 @@ def request_from_args(args: argparse.Namespace) -> tuple[Request, str | None]:
         if request.base and not git_output(["rev-parse", "--verify", "--quiet", f"{request.base}^{{commit}}"], request.cwd):
             raise DelegateError(f"base ref {request.base!r} not found in {request.cwd}")
     if args.command == "adversarial":
-        stdin_text = adversarial_prompt(request, " ".join(args.focus))
+        stdin_text = adversarial_prompt(request, read_focus(args.focus))
     elif args.command in ("consult", "implement", "resume"):
         stdin_text = read_prompt(args.prompt)
     if args.command == "implement":

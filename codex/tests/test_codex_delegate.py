@@ -138,6 +138,21 @@ def test_bad_base_ref_is_rejected_before_running(tmp_path):
         cd.request_from_args(bad)
 
 
+def test_adversarial_focus_comes_from_argv_or_stdin(tmp_path, monkeypatch):
+    parser = cd.build_parser()
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("retries and $ROLLBACK\nstate"))
+    _, prompt = cd.request_from_args(parser.parse_args(["adversarial", "--cwd", str(tmp_path), "-"]))
+    assert "retries and $ROLLBACK\nstate" in prompt
+    _, prompt = cd.request_from_args(parser.parse_args(["adversarial", "--cwd", str(tmp_path), "races", "rollback"]))
+    assert "races rollback" in prompt
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("never read"))
+    _, prompt = cd.request_from_args(parser.parse_args(["adversarial", "--cwd", str(tmp_path)]))
+    assert "never read" not in prompt, "no focus means no stdin read"
+    monkeypatch.setattr("sys.stdin", __import__("io").StringIO("  "))
+    with pytest.raises(cd.DelegateError, match="no focus text"):
+        cd.request_from_args(parser.parse_args(["adversarial", "--cwd", str(tmp_path), "-"]))
+
+
 def test_project_config_is_checked_at_the_git_root_too(tmp_path):
     repo = git_repo(tmp_path / "repo")
     (repo / ".codex").mkdir()

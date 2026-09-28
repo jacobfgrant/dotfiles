@@ -13,7 +13,7 @@ user-invocable: false
 | Subcommand | Profile | Access | Default |
 |---|---|---|---|
 | `review [--base REF \| --uncommitted]` | review | read-only, no network, secrets denied | gpt-6-sol / high |
-| `adversarial [--base REF \| --uncommitted] [FOCUS...]` | review | same | gpt-6-sol / high |
+| `adversarial [--base REF \| --uncommitted] [FOCUS... \| -]` | review | same | gpt-6-sol / high |
 | `consult --model M [PROMPT \| -]` | review | same | model required, high |
 | `implement [--worktree] [PROMPT \| -]` | development | workspace writes, no network, secrets denied | gpt-6-sol / high, in place |
 | `resume SESSION_ID [--write] [PROMPT \| -]` | review, or development with `--write` | as above | inherits model, effort, and directory |
@@ -24,7 +24,7 @@ Common flags: `--model`, `--effort {low,medium,high,xhigh,max,ultra}`, `--cwd DI
 
 Before running, the wrapper refuses any project whose own `.codex/config.toml` sets sandbox, permission, approval, or provider keys, or whose `.codex/rules` contain an `allow` rule, because Codex would load them and they could replace the pinned profile. It also refuses a `--base` ref that does not exist. Report a refusal; do not alter the project's files to get past it.
 
-Prompts go on stdin (`-` or omitted) via a heredoc. Never build a long prompt as an argv element.
+Prompts go on stdin (`-` or omitted) via a quoted heredoc (`<<'EOF'`, so `$` and backticks stay literal). Never build a long prompt as an argv element. Adversarial focus text is the same: a short phrase can be an argument, but anything longer goes on stdin with `-`; omitted focus never reads stdin.
 
 ## Report
 
