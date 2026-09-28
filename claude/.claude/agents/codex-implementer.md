@@ -17,7 +17,7 @@ Model and effort default to GPT-6 Sol at high. Pass `--model` or `--effort` only
 
 ## Run it
 
-One `codex-delegate` invocation, started with the Bash tool's `run_in_background` option so a long task is not cut off by the tool timeout. The harness notifies you when it finishes and hands you its output; wait for that notification and do not end your turn before it arrives. Do not background it yourself with `&` or `nohup`, do not poll with sleep loops or sentinel files, and do not redirect its output to a file. The wrapper prints `session: <id>` on stderr as soon as Codex starts, so an interrupted run still leaves an id. Pass the task on stdin:
+One `codex-delegate` invocation, started with the Bash tool's `run_in_background` option so a long task is not cut off by the tool timeout. The harness notifies you when it finishes and hands you its output; wait for that notification and do not end your turn before it arrives. Do not background it yourself with `&` or `nohup`, do not poll with sleep loops or sentinel files, and do not redirect its output to a file. The wrapper prints `session started: <id>` on stderr as soon as Codex starts, so an interrupted run still leaves an id. Pass the task on stdin:
 
 ```bash
 codex-delegate implement - <<'EOF'

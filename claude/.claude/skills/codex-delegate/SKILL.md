@@ -42,7 +42,7 @@ WARNING:   <text>          (zero or more)
 ---
 ```
 
-`requested -> actual` comes from the session file, not from the output. Any `WARNING:` line or `unverified` value means the run could not be verified or did not run as pinned; treat that as a failed delegation and report it first. `--json` gives the same fields plus `findings`, `message`, `warnings`, `command`.
+A `session started: <id>` line on stderr comes first, as soon as Codex starts, so an interrupted run still leaves an id for `codex-delegate show`. `requested -> actual` comes from the session file, not from the output. Any `WARNING:` line or `unverified` value means the run could not be verified or did not run as pinned; treat that as a failed delegation and report it first. `--json` gives the same fields plus `findings`, `message`, `warnings`, `command`.
 
 ## Reviews and consults
 

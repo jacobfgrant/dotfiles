@@ -344,7 +344,7 @@ def run_codex(argv: list[str], cwd: Path, stdin_text: str | None, verbose: bool 
         if kind == "thread.started":
             thread_id = event.get("thread_id")
             # Printed early so an interrupted run still leaves an id for `show`.
-            print(f"session: {thread_id}", file=sys.stderr, flush=True)
+            print(f"session started: {thread_id}", file=sys.stderr, flush=True)
         elif kind == "error":
             message = str(event.get("message") or event)
             errors.append(message)
