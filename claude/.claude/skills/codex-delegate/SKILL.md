@@ -1,6 +1,6 @@
 ---
 name: codex-delegate
-description: Contract for delegating to OpenAI models (GPT-6 Sol, GPT-6 Astra) through the local Codex CLI via the codex-delegate wrapper and the codex-reviewer, codex-consult, and codex-implementer agents. Load when asked for a second opinion, an independent or adversarial review, a Codex or GPT or Astra or Sol run, or when deciding whether to hand work to another model.
+description: Contract for getting reviews and second opinions from OpenAI models (GPT-6 Sol by default, GPT-6 Astra by exception) by running the local codex-delegate wrapper directly, and for delegating implementation to the codex-implementer agent. Load proactively once a substantive change is ready for review, especially one touching concurrency, persistence, security, networking, retries, failure handling, or rollback; when stuck or when two explanations compete; whenever asked for a second opinion, an independent or adversarial review, or a Codex, GPT, Sol, or Astra run; and when deciding whether to hand work to another model.
 user-invocable: false
 ---
 
@@ -44,13 +44,31 @@ WARNING:   <text>          (zero or more)
 
 `requested -> actual` comes from the session file, not from the output. Any `WARNING:` line or `unverified` value means the run could not be verified or did not run as pinned; treat that as a failed delegation and report it first. `--json` gives the same fields plus `findings`, `message`, `warnings`, `command`.
 
-## Agents
+## Reviews and consults
 
-- **codex-reviewer**: `review` or `adversarial`. Use for substantive changes, especially concurrency, persistence, security, networking, retries, failure handling, rollback. Always give it the base ref for a branch review. For a multi-reviewer pass, launch it in the same message as the Claude reviewers, as parallel Agent calls.
-- **codex-consult**: `consult`. Use when stuck, when explanations compete, or for a deliberate outside opinion.
-- **codex-implementer**: `implement`. Use for an alternative implementation, a mechanical refactor, or a bounded fix. It works in place unless something else is editing the same checkout, in which case it adds `--worktree`; tell it when that is the case.
+Run these yourself with one Bash call using `run_in_background: true`; a run takes a few minutes and can outlast the Bash timeout. The harness notifies you with the output when it finishes, so keep working or end your turn in the meantime. Do not poll, sleep, background with `&`, or redirect the output to a file.
 
-Each agent runs one command and returns the report verbatim; the implementer adds next steps. Verification of findings is the caller's job.
+- **Review a change.** Use proactively for substantive changes, especially concurrency, persistence, security, networking, retries, failure handling, rollback. `review` hunts defects and takes scope only; `adversarial` challenges the design and assumptions and takes focus text. Pass `--base <ref>` for a branch review; without it the uncommitted working tree is reviewed. For a multi-reviewer pass, start the Codex run in the same message as the Claude reviewer Agent calls so they run in parallel.
+- **Consult.** Use when stuck, when explanations compete, or for a deliberate outside opinion. Give the concrete symptoms, what has been tried, and what a useful answer looks like.
+
+```bash
+codex-delegate adversarial --base master - <<'EOF'
+Retries, idempotency, and rollback in the new upload path.
+Deliberate, not findings: uploads are best effort; there is no resume.
+EOF
+
+codex-delegate consult --model gpt-6-sol - <<'EOF'
+<the question and the facts>
+EOF
+```
+
+Add `--cwd <path>` for a repository other than the current directory. Codex reads the checkout live, so hold edits to the files under review until it returns.
+
+When it returns, read the header before the findings. Then verify each finding before acting on it, and tell the user which model produced it. Continue a thread with `codex-delegate resume <id>`. If a run fails or is interrupted, report that with any partial output; do not rerun it with different flags.
+
+## Implementation
+
+The **codex-implementer** agent runs `implement` for an alternative implementation, a mechanical refactor, or a bounded fix. It works in place unless something else is editing the same checkout, in which case it adds `--worktree`; tell it when that is the case. It returns the report verbatim plus next steps; verifying the work is the caller's job.
 
 ## Policy
 
