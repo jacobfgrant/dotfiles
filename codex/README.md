@@ -45,10 +45,10 @@ References: [profiles](https://learn.chatgpt.com/docs/config-file/config-advance
 
 | Subcommand | Profile | Default model / effort |
 |---|---|---|
-| `review [--base REF \| --uncommitted]` | `review` | gpt-6-sol / high |
-| `adversarial [--base REF \| --uncommitted] [FOCUS... \| -]` | `review` | gpt-6-sol / high |
+| `review [--base REF \| --uncommitted]` | `review` | gpt-6.1-sol / high |
+| `adversarial [--base REF \| --uncommitted] [FOCUS... \| -]` | `review` | gpt-6.1-sol / high |
 | `consult --model M [PROMPT \| -]` | `review` | model required / high |
-| `implement [--worktree] [PROMPT \| -]` | `development` | gpt-6-sol / high |
+| `implement [--worktree] [PROMPT \| -]` | `development` | gpt-6.1-sol / high |
 | `resume SESSION_ID [--write] [PROMPT \| -]` | `review`, or `development` with `--write` | inherits |
 | `show SESSION_ID` | none | reads the session file only |
 | `doctor [--skip-canary]` | none | no model calls |
@@ -57,7 +57,7 @@ References: [profiles](https://learn.chatgpt.com/docs/config-file/config-advance
 
 Before running, the wrapper refuses a project whose own `.codex/config.toml` sets sandbox, permission, approval, or provider keys, or whose `.codex/rules` contain an `allow` rule. Codex trusts every directory `codex exec` runs in and loads that configuration, which could replace the pinned profile. Codex also appends a `[projects]` trust entry to `~/.codex/config.toml` for each such directory; since that file is a symlink into this repo, review those hunks before committing.
 
-The Claude side is the `codex-delegate` skill, which holds the contract and the delegation policy: GPT-6 Sol at high by default, GPT-6 Astra only for genuinely hard problems or disagreement, findings treated as peer input. The main session runs every intent itself with a background Bash call. Earlier versions went through Sonnet relay subagents, but a subagent cannot wait on a background command without busy-waiting, and in practice the relays polled, sent interim notifications, and once orphaned a shell loop.
+The Claude side is the `codex-delegate` skill, which holds the contract and the delegation policy: GPT-6.1 Sol at high by default, GPT-6 Astra only for genuinely hard problems or disagreement, findings treated as peer input. The main session runs every intent itself with a background Bash call. Earlier versions went through Sonnet relay subagents, but a subagent cannot wait on a background command without busy-waiting, and in practice the relays polled, sent interim notifications, and once orphaned a shell loop.
 
 ### Keeping it current
 

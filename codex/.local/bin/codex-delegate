@@ -37,7 +37,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-DEFAULT_MODEL = "gpt-6-sol"
+DEFAULT_MODEL = "gpt-6.1-sol"
 ESCALATION_MODEL = "gpt-6-astra"
 DEFAULT_EFFORT = "high"
 EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")

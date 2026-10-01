@@ -1,6 +1,6 @@
 ---
 name: codex-delegate
-description: Contract for getting reviews and second opinions from OpenAI models (GPT-6 Sol by default, GPT-6 Astra by exception) and for delegating bounded implementation work, by running the local codex-delegate wrapper directly. Load proactively once a substantive change is ready for review, especially one touching concurrency, persistence, security, networking, retries, failure handling, or rollback; when stuck or when two explanations compete; whenever asked for a second opinion, an independent or adversarial review, or a Codex, GPT, Sol, or Astra run; and when deciding whether to hand work to another model.
+description: Contract for getting reviews and second opinions from OpenAI models (GPT-6.1 Sol by default, GPT-6 Astra by exception) and for delegating bounded implementation work, by running the local codex-delegate wrapper directly. Load proactively once a substantive change is ready for review, especially one touching concurrency, persistence, security, networking, retries, failure handling, or rollback; when stuck or when two explanations compete; whenever asked for a second opinion, an independent or adversarial review, or a Codex, GPT, Sol, or Astra run; and when deciding whether to hand work to another model.
 user-invocable: false
 ---
 
@@ -12,10 +12,10 @@ user-invocable: false
 
 | Subcommand | Profile | Access | Default |
 |---|---|---|---|
-| `review [--base REF \| --uncommitted]` | review | read-only, no network, secrets denied | gpt-6-sol / high |
-| `adversarial [--base REF \| --uncommitted] [FOCUS... \| -]` | review | same | gpt-6-sol / high |
+| `review [--base REF \| --uncommitted]` | review | read-only, no network, secrets denied | gpt-6.1-sol / high |
+| `adversarial [--base REF \| --uncommitted] [FOCUS... \| -]` | review | same | gpt-6.1-sol / high |
 | `consult --model M [PROMPT \| -]` | review | same | model required, high |
-| `implement [--worktree] [PROMPT \| -]` | development | workspace writes, no network, secrets denied | gpt-6-sol / high, in place |
+| `implement [--worktree] [PROMPT \| -]` | development | workspace writes, no network, secrets denied | gpt-6.1-sol / high, in place |
 | `resume SESSION_ID [--write] [PROMPT \| -]` | review, or development with `--write` | as above | inherits model, effort, and directory |
 | `show SESSION_ID` | none | reads the session file | |
 | `doctor [--skip-canary]` | none | no model calls | |
@@ -32,7 +32,7 @@ Text mode prints a header, then Codex's final message (or the adversarial findin
 
 ```
 intent:    adversarial
-model:     gpt-6-sol -> gpt-6-sol
+model:     gpt-6.1-sol -> gpt-6.1-sol
 effort:    high -> high
 profile:   review -> review (read-only)
 session:   <id>
@@ -58,7 +58,7 @@ Retries, idempotency, and rollback in the new upload path.
 Deliberate, not findings: uploads are best effort; there is no resume.
 EOF
 
-codex-delegate consult --model gpt-6-sol - <<'EOF'
+codex-delegate consult --model gpt-6.1-sol - <<'EOF'
 <the question and the facts>
 EOF
 
@@ -73,7 +73,7 @@ When a run returns, read the header before anything else. Verify each review fin
 
 ## Policy
 
-- GPT-6 Sol at high is the default for everything. Escalate to `gpt-6-astra` only for genuinely hard or ambiguous problems, or when Claude and Sol disagree. Astra shares the usage pool and consumes it roughly twice as fast. Do not use `max` or `ultra` unless asked.
+- GPT-6.1 Sol at high is the default for everything. Escalate to `gpt-6-astra` only for genuinely hard or ambiguous problems, or when Claude and Sol disagree. Astra shares the usage pool and consumes it roughly twice as fast. Do not use `max` or `ultra` unless asked.
 - Being right matters more than being cheap, so reviews and opinions never drop below Sol. `gpt-6-luna` is for cheap, checkable work, mostly testing: smoke-testing a prompt, a classification run, a quick factual check. Pass `--model gpt-6-luna` explicitly, usually with `--effort low`.
 - Give Codex scope and concerns, not conclusions. Anchoring the reviewer on Claude's framing defeats the purpose. Decisions already made are different: a deliberate product or design choice the user has settled is a fact, and stating it as focus text ("deliberate, not findings: ...") cuts noise without anchoring the review. Name the choice, not its consequences: "the palette hues are deliberate" leaves contrast and accessibility in scope, where "the colour values are deliberate" reads as exempting them too.
 - Treat findings as peer-review input. Verify each one before acting on it, and say which model produced it.
@@ -86,7 +86,7 @@ When a run returns, read the header before anything else. Verify each review fin
 Only when the user asks for something the wrapper cannot express, and never as a retry after a wrapper refusal or failure, `codex exec` may be run directly with the profile selected explicitly and no sandbox or bypass flag:
 
 ```bash
-codex exec -c 'default_permissions="review"' -c 'model_reasoning_effort="high"' -m gpt-6-sol --json - <<'EOF'
+codex exec -c 'default_permissions="review"' -c 'model_reasoning_effort="high"' -m gpt-6.1-sol --json - <<'EOF'
 ...
 EOF
 ```

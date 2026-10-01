@@ -27,7 +27,7 @@ SCHEMA = Path("/tmp/schema.json")
 
 
 def request(**overrides):
-    base = {"intent": "consult", "cwd": Path("/repo"), "model": "gpt-6-sol", "effort": "high"}
+    base = {"intent": "consult", "cwd": Path("/repo"), "model": "gpt-6.1-sol", "effort": "high"}
     return cd.Request(**{**base, **overrides})
 
 
@@ -39,7 +39,7 @@ def test_review_uses_native_reviewer_with_review_profile():
     assert argv[:5] == ["codex", "exec", "review", "--base", "master"]
     assert 'default_permissions="review"' in argv
     assert 'model_reasoning_effort="high"' in argv
-    assert argv[argv.index("--model") + 1] == "gpt-6-sol"
+    assert argv[argv.index("--model") + 1] == "gpt-6.1-sol"
     assert "--json" in argv and str(OUT) in argv
     assert argv[-1] != "-", "review takes no prompt"
     assert "--uncommitted" in cd.build_command(request(intent="review"), OUT)
@@ -169,7 +169,7 @@ def test_project_config_is_checked_at_the_git_root_too(tmp_path):
 # --- session rollouts: what actually ran ---
 
 
-def rollout_lines(model="gpt-6-sol", effort="high", profile="review", sandbox="read-only", last="done", turn_id="turn-1", cwd="/repo"):
+def rollout_lines(model="gpt-6.1-sol", effort="high", profile="review", sandbox="read-only", last="done", turn_id="turn-1", cwd="/repo"):
     records = [
         {"type": "session_meta", "payload": {"id": "sess-1", "cli_version": "0.156.1", "cwd": cwd}},
         {
@@ -207,7 +207,7 @@ def test_summary_reads_model_profile_and_message(sessions):
     write_rollout(sessions, "sess-2", [])
     summary = cd.load_summary("sess-1")
     assert (summary.session_id, summary.cli_version, summary.turns) == ("sess-1", "0.156.1", 1)
-    assert (summary.model, summary.effort, summary.profile, summary.sandbox) == ("gpt-6-sol", "high", "review", "read-only")
+    assert (summary.model, summary.effort, summary.profile, summary.sandbox) == ("gpt-6.1-sol", "high", "review", "read-only")
     assert summary.last_message == "done"
     assert cd.load_summary("missing") is None
     assert cd.load_summary("1") is None, "a partial id must not match a longer one"
@@ -266,12 +266,12 @@ def test_resume_only_counts_a_turn_newer_than_the_ones_it_started_with(sessions)
     assert stale.model is None and stale.turns == 0, "no new turn yet: unverified, not the old values"
 
     lines = rollout_lines(model="gpt-6-astra", turn_id="turn-old")
-    lines.append(json.dumps({"type": "turn_context", "payload": {"turn_id": "turn-new", "model": "gpt-6-sol", "effort": "high",
+    lines.append(json.dumps({"type": "turn_context", "payload": {"turn_id": "turn-new", "model": "gpt-6.1-sol", "effort": "high",
                                                                  "active_permission_profile": {"id": "development"},
                                                                  "sandbox_policy": {"type": "workspace-write"}}}))
     write_rollout(sessions, "sess-1", lines)
     fresh = cd.load_summary("sess-1", wait_s=0, prior_turn_ids=prior)
-    assert (fresh.model, fresh.profile, fresh.turns) == ("gpt-6-sol", "development", 2)
+    assert (fresh.model, fresh.profile, fresh.turns) == ("gpt-6.1-sol", "development", 2)
 
 
 def test_report_says_unverified_when_no_turn_matched(sessions):
@@ -304,18 +304,18 @@ def test_review_child_thread_is_matched_by_turn_id(sessions):
         write_rollout(sessions, name, lines)
 
     child("child-1", model="gpt-6-astra", profile="development", turn_id="turn-A")  # earlier run, different turn
-    child("child-2", model="gpt-6-sol", profile="review", last="child text", turn_id="turn-B")
+    child("child-2", model="gpt-6.1-sol", profile="review", last="child text", turn_id="turn-B")
     write_rollout(sessions, "other", rollout_lines(model="gpt-6-luna", turn_id="turn-B"))  # not a child at all
 
     summary = cd.load_summary("parent-1")
-    assert (summary.model, summary.profile, summary.sandbox, summary.turns) == ("gpt-6-sol", "review", "read-only", 1)
+    assert (summary.model, summary.profile, summary.sandbox, summary.turns) == ("gpt-6.1-sol", "review", "read-only", 1)
     assert summary.last_message == "review text"
 
     write_rollout(sessions, "child-2", [])  # with no child matching turn-B, nothing is attributed
     unmatched = cd.load_summary("parent-1")
     assert unmatched.model is None and unmatched.turns == 0
 
-    child("child-2", model="gpt-6-sol", profile="review", turn_id="turn-B")
+    child("child-2", model="gpt-6.1-sol", profile="review", turn_id="turn-B")
     resumed = cd.load_summary("parent-1", prior_turn_ids={"turn-B"})  # this run added nothing new
     assert resumed.model is None and resumed.turns == 0
 
