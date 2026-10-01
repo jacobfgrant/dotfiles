@@ -46,7 +46,7 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
 ROLLOUT_FLUSH_WAIT_S = 15
 
 # Bumped by /codex-audit after the wrapper is re-checked against a newer Codex.
-VALIDATED_CODEX_VERSION = "0.158.0"
+VALIDATED_CODEX_VERSION = "0.159.3"
 
 PROFILE_FOR_INTENT = {
     "review": "review",
@@ -59,6 +59,7 @@ PROFILE_FOR_INTENT = {
 # trusted in [projects], so any of these keys there could replace the pinned
 # profile, reroute the model, or change how approvals are decided.
 PROJECT_CONFIG_FORBIDDEN_KEYS = (
+    "sandbox_permissions",
     "sandbox_mode",
     "sandbox_workspace_write",
     "default_permissions",

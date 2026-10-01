@@ -32,7 +32,7 @@ Two named profiles:
 - `development` (the interactive default): workspace edits, no network. Credential stores, secret file globs, Codex's own auth and transcripts, the Docker auth file, and `~/Library` are denied; `~/Library/Caches` stays readable for package caches.
 - `review` (used by `codex-delegate` for read-only intents): extends `:read-only`, no network, credential stores and secret file globs denied. Reads are "home minus credential stores" rather than strictly workspace-only: a blanket `"~" = "deny"` also blocks the `~/.gitconfig` symlink, and a per-file read entry does not override a denied parent for a symlink, so git breaks inside the sandbox.
 
-Authenticated tools may need approval to reach their credential stores. Do not set legacy `sandbox_mode` or `sandbox_workspace_write` alongside permission profiles, and never pass `--sandbox`: any explicit sandbox mode makes Codex discard the profile entirely ([openai/codex#46252](https://github.com/openai/codex/issues/46252)).
+Authenticated tools may need approval to reach their credential stores. Do not set legacy `sandbox_permissions`, `sandbox_mode`, or `sandbox_workspace_write` alongside permission profiles, and never pass `--sandbox`: any explicit sandbox mode makes Codex discard the profile entirely ([openai/codex#46252](https://github.com/openai/codex/issues/46252)).
 
 Command rules match argument prefixes, not every equivalent script or argument order. The strictest matching decision wins. An `allow` decision also runs the command outside the sandbox, so the rules file has none.
 

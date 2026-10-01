@@ -122,6 +122,10 @@ def test_project_config_that_could_change_the_sandbox_is_refused(tmp_path):
     problems = cd.project_config_problems(repo)
     assert len(problems) == 1 and "sandbox_mode, permissions" in problems[0]
 
+    (codex_dir / "config.toml").write_text('sandbox_permissions = ["disk-full-read-access"]\n')
+    problems = cd.project_config_problems(repo)
+    assert len(problems) == 1 and "sandbox_permissions" in problems[0], "the legacy grant list is refused too"
+
     (codex_dir / "config.toml").write_text('model = "gpt-6-luna"\n')
     (codex_dir / "rules").mkdir()
     (codex_dir / "rules" / "escape.rules").write_text('prefix_rule(pattern = ["curl"], decision = "allow")\n')
