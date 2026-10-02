@@ -91,6 +91,26 @@
     bl = branch -vv         # list branch info
     bla = branch --all -vv  # list ALL branch info
 
+    # worktree
+    w = worktree                       # git worktree command
+    wl = worktree list --verbose       # list worktrees (incl. lock/prunable reasons)
+    wr = worktree remove               # remove worktree (must be clean)
+    wrf = worktree remove --force      # remove worktree, discarding changes/untracked files
+    wp = worktree prune --verbose      # clean up records of manually deleted worktrees
+
+    # add worktree for an existing branch at ../<repo>--<branch>; prints path
+    # (use the bare branch name; a remote-only branch gets a local tracking branch)
+    #    git wa <branch>
+    wa = "!f() { [ $# -eq 1 ] || { echo 'usage: git wa <branch>' >&2; exit 1; }; p=\"$(git worktree list --porcelain | sed -n '1s/^worktree //p')--$(echo \"$1\" | tr / -)\"; git worktree add \"$p\" \"$1\" >&2 && echo \"$p\"; }; f"
+
+    # add worktree with a new, non-tracking branch (from HEAD or given start point); prints path
+    #    git wab <branch> [<start-point>]
+    wab = "!f() { [ $# -eq 1 ] || [ $# -eq 2 ] || { echo 'usage: git wab <branch> [<start-point>]' >&2; exit 1; }; p=\"$(git worktree list --porcelain | sed -n '1s/^worktree //p')--$(echo \"$1\" | tr / -)\"; git worktree add --no-track -b \"$1\" \"$p\" \"${2:-HEAD}\" >&2 && echo \"$p\"; }; f"
+
+    # remove the worktree holding a branch, then delete the branch (safe delete)
+    #    git wrb <branch>
+    wrb = "!f() { [ $# -eq 1 ] || { echo 'usage: git wrb <branch>' >&2; exit 1; }; p=$(git worktree list --porcelain | awk -v b=\"branch refs/heads/$1\" '/^worktree /{p=substr($0,10)} $0==b{print p}'); [ -n \"$p\" ] || { echo \"no worktree for branch '$1'\" >&2; exit 1; }; [ \"$p\" != \"$(git rev-parse --show-toplevel)\" ] || { echo \"can't remove the worktree you're in; run from another one\" >&2; exit 1; }; git worktree remove \"$p\" && git branch -d \"$1\"; }; f"
+
     # tag
     t = tag             # list or create tags
     tc = tag --contains	# list tags that contain a given commit
