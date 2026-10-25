@@ -428,9 +428,11 @@ ghostty-setup() {
         return 1
     fi
 
+    local host
     for host in "$@"; do
         echo "Installing terminfo on $host..."
-        if infocmp -x xterm-ghostty | ssh "$host" -- tic -x -; then
+        if infocmp -x xterm-ghostty | ssh "$host" -- tic -x - &&
+            ssh -t "$host" -- 'infocmp -x xterm-ghostty | sudo tic -x -'; then
             echo "  $host: done"
         else
             echo "  $host: failed" >&2
