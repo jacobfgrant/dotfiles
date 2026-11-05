@@ -4,7 +4,8 @@
 #
 # Table of Contents:
 #   - ENVIRONMENT
-#   - TOOLS & SERVICES  
+#   - HOUSEKEEPING
+#   - TOOLS & SERVICES
 #   - CORE ALIASES
 #   - PACKAGE MANAGERS
 #   - DEVELOPMENT TOOLS
@@ -37,6 +38,12 @@ then
 else
     export GOPATH="$HOME/.go"
 fi
+
+
+## HOUSEKEEPING ##
+
+# Claude Code leaves .claude.json.tmp.* behind when CodexBar kills its usage probe mid-save
+find "$HOME" -maxdepth 1 -name '.claude.json.tmp.*' -mtime +1 -delete 2>/dev/null
 
 
 ## TOOLS & SERVICES ##
