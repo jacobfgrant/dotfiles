@@ -485,7 +485,8 @@ latex_compile() {
     esac
 
     # Watch mode only works with latexmk
-    if $watch && [[ "${engine[0]}" != "latexmk" ]]; then
+    # ${engine[*]} rather than an index: bash arrays start at 0, zsh at 1
+    if $watch && [[ "${engine[*]}" != latexmk* ]]; then
         echo "Error: watch mode (-w) only works with latexmk engines"
         return 1
     fi
