@@ -2,49 +2,18 @@
 
 ## Operating Systems ##
 
-# MacOS
+# macOS
 .DS_Store
 .AppleDouble
 .LSOverride
-Icon
 ._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
-.nfs*
+Icon[[:cntrl:]]
 
 
 # Windows
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.tmp
-*.temp
 Desktop.ini
 $RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnk
 
 
 ## Programming Languages ##
@@ -52,165 +21,72 @@ $RECYCLE.BIN/
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
+.venv/
+venv/
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-*.manifest
-*.spec
-pip-log.txt
-pip-delete-this-directory.txt
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
 .tox/
 .nox/
 .coverage
-.pytest_cache/
-cover/
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-instance/
-.webassets-cache
-.scrapy
-docs/_build/
-.pybuilder/
-target/
-.ipynb_checkpoints
-profile_default/
-ipython_config.py
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.spyderproject
-.spyproject
-.rope_project_settings
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-cython_debug/
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
 
 
 # Node.js
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-pids
-*.pid
-*.seed
-*.pid.lock
-lib-cov
-coverage
-*.lcov
-.nyc_output
-.grunt
-bower_components
-.lock-wscript
-build/Release
-.npm
 .eslintcache
-.stylelintcache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-.cache
-.parcel-cache
-.next
-out
-.nuxt
-dist
 .cache/
-.vuepress/dist
-.serverless/
-.fusebox/
-.dynamodb/
-.tern-port
-.vscode-test
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
 .pnp.*
 
 
 # Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
 *.test
-*.out
-go.work
 
 
 # Rust
-debug/
 target/
-Cargo.lock
 
 
 # Java
 *.class
-*.log
-*.ctxt
-.mtj.tmp/
 *.jar
+!gradle-wrapper.jar
+!maven-wrapper.jar
 *.war
-*.nar
 *.ear
-*.zip
-*.tar.gz
-*.rar
 hs_err_pid*
 replay_pid*
 
 
-# Terraform
+## Infrastructure ##
+
+# Terraform / Terragrunt
 .terraform/
 .terraform.lock.hcl
+.terraform.tfstate.lock.info
+.terragrunt-cache/
 *.tfstate
 *.tfstate.*
 *.tfplan
-*.tfplan.*
-.terraformrc
-terraform.rc
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraform.tfstate.lock.info
 
 
-# Docker
-.dockerignore
+# AWS SAM / Serverless Framework
+.aws-sam/
+.serverless/
 
 
 # Kubernetes
@@ -221,126 +97,65 @@ override.tf.json
 *.retry
 
 
-## IDEs and Editors ##
+## IDEs, Editors, and Agents ##
 
-# VSCode
-.vscode/
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-
-# Claude Code
-.claude/
-
-
-# IntelliJ IDEA
-.idea/
-*.iws
-*.iml
-*.ipr
-out/
-
-
-# Eclipse
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-
-# NetBeans
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-
-# Vim
+# Vim / Emacs
 *~
 *.swp
 *.swo
-*.tmp
-
-
-# Emacs
-*~
 \#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
 .\#*
 
 
-# SublimeText
-*.tmlanguage.cache
-*.tmPreferences.cache
-*.stTheme.cache
-*.sublime-workspace
-*.sublime-project
+# VSCode / JetBrains
+.vscode/
+.idea/
 
 
-# Atom
-.ftpconfig
-.sftpconfig
+# Coding agents
+.claude/
+.codex/
 
 
 ## Other ##
 
 # Secrets and credentials
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 *.pem
 *.key
-*.crt
 *.p12
 *.pfx
-.aws/credentials
-.ssh/id_*
-.ssh/*_rsa
-.ssh/*_dsa
-.ssh/*_ecdsa
-.ssh/*_ed25519
+**/.aws/credentials
+**/.ssh/id_*
+
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
 
 
 # Archives
-*.7z
 *.zip
-*.tar
-*.tar.gz
-*.tgz
-*.tar.bz2
-*.tbz
-*.tbz2
-*.tar.xz
-*.txz
-*.tar.zst
-*.tzst
-*.tar.br
+*.7z
 *.rar
 *.iso
+*.tar
+*.tar.*
+*.tgz
+*.tbz2
+*.txz
 
 
 # Logs
 *.log
-logs
 *.log.*
 
 
 # Temporary files
+*.tmp
 tmp/
-temp/
 .tmp/
