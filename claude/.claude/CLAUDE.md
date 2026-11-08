@@ -88,3 +88,8 @@ Sessions are pinned to read-only AWS profiles (`read`, `view`) on purpose.
 - Don't start working on things immediately in response to a question
 - Don't add extensive comments explaining obvious code
 - Don't install global tools or dependencies without asking, use virtualenvs
+
+
+## Second Opinions
+
+The `codex-delegate` skill is the contract for handing work to OpenAI models through Codex: run the wrapper directly for reviews, consults, and delegated implementation. Ask Sol for a review proactively once a substantive change is ready, and for an outside opinion when stuck. Two rules stand regardless: verify Codex's findings before acting on them, and never widen Codex's permissions to make a run succeed; surface the blocked operation instead.
