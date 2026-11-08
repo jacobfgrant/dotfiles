@@ -48,8 +48,12 @@ fi
 
 ## HOUSEKEEPING ##
 
-# Claude Code leaves .claude.json.tmp.* behind when CodexBar kills its usage probe mid-save
-find "$HOME" -maxdepth 1 -name '.claude.json.tmp.*' -mtime +1 -delete 2>/dev/null
+# Claude Code leaves .claude.json.tmp.* behind when CodexBar kills its usage
+# probe mid-save. A save takes milliseconds, so anything older than an hour is dead.
+if [ -d "/Applications/CodexBar.app" ] || [ -d "$HOME/Applications/CodexBar.app" ]
+then
+    find "$HOME" -maxdepth 1 -name '.claude.json.tmp.*' -mmin +60 -delete 2>/dev/null
+fi
 
 
 ## TOOLS & SERVICES ##
