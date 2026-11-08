@@ -3,10 +3,33 @@
 # ZSH configuration, completion, and prompt setup
 #
 # Table of Contents:
+#   - ENVIRONMENT
 #   - COMMON ALIASES
 #   - TOOL COMPLETION
 #   - ZSH CONFIGURATION
 #
+
+## ENVIRONMENT ##
+
+# Homebrew #
+
+# Keep Homebrew ahead of system tools in every interactive shell. Only login
+# shells read .zprofile; a shell launched from a GUI app (not a terminal) starts
+# from the bare system PATH and would otherwise find Apple's tools first.
+# Only prepend when Homebrew is absent, so a shell started inside an activated
+# virtualenv keeps the virtualenv's interpreter ahead of Homebrew's.
+typeset -U PATH path fpath
+if [[ -d /opt/homebrew/bin && -z ${path[(r)/opt/homebrew/bin]} ]]
+then
+    path=(/opt/homebrew/bin /opt/homebrew/sbin $path)
+fi
+
+# Homebrew's zsh completions (brew, gh, doctl, uv, terraform, kubectl, ...)
+if [[ -d /opt/homebrew/share/zsh/site-functions ]]
+then
+    fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
+fi
+
 
 ## COMMON ALIASES ##
 
@@ -15,18 +38,18 @@
 
 ## TOOL COMPLETION ##
 
+# Initialize the completion system once, before any tool hooks into it
+autoload -Uz compinit
+compinit
+
+
 # AWS CLI #
 
 if (( $+commands[brew] && $+commands[aws] ))
 then
     AWS_ZSH_COMPLETER="$(brew --prefix)/share/zsh/site-functions/aws_zsh_completer.sh"
 
-    if [[ -f "$AWS_ZSH_COMPLETER" ]]
-    then
-        autoload -Uz compinit
-        compinit
-        source "$AWS_ZSH_COMPLETER"
-    fi
+    [[ -f "$AWS_ZSH_COMPLETER" ]] && source "$AWS_ZSH_COMPLETER"
 fi
 
 
