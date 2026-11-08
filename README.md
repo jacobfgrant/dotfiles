@@ -28,6 +28,16 @@
   - AWS CLI and Google Cloud CLI completion
 
 
+### codex/
+
+- `.codex/AGENTS.md` – Codex global conventions and preferences
+- `.codex/config.toml` – Model, approvals, and permission profiles (`development`, `review`)
+- `.codex/rules/safety.rules` – Command permission rules
+- `.local/bin/codex-delegate` – Runs Codex non-interactively for Claude Code with pinned permissions
+- `tests/` – Unit tests for `codex-delegate`
+- [Setup and configuration](codex/README.md)
+
+
 ### common/
 
 - `.common_aliases.sh` – Common shell aliases used by bash, zsh, etc.
