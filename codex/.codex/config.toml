@@ -37,6 +37,7 @@ enabled = false
 "~/.codex/sessions" = "deny"
 "~/.codex/history.jsonl" = "deny"
 "~/.claude" = "deny"
+"~/.claude.json" = "deny"
 "~/.docker/config.json" = "deny"
 "~/Library" = "deny"
 "~/Library/Caches" = "read"
@@ -50,7 +51,18 @@ glob_scan_max_depth = 8
 "**/*.pem" = "deny"
 "**/*.p12" = "deny"
 "**/*.pfx" = "deny"
+"**/*.secret*" = "deny"
+"**/*.token" = "deny"
+"**/*.token.json" = "deny"
+"**/.netrc" = "deny"
+"**/credentials" = "deny"
+"**/credentials.json" = "deny"
+"**/id_ed25519*" = "deny"
+"**/id_rsa*" = "deny"
 "**/secrets/**" = "deny"
+"**/token" = "deny"
+"**/token.json" = "deny"
+"**/token.txt" = "deny"
 
 # Used by codex-delegate for review, adversarial review, and consult runs.
 # Reads are "home minus credential stores" rather than strictly workspace-only:
@@ -78,6 +90,7 @@ enabled = false
 "~/.codex/sessions" = "deny"
 "~/.codex/history.jsonl" = "deny"
 "~/.claude" = "deny"
+"~/.claude.json" = "deny"
 "~/.docker/config.json" = "deny"
 "~/Library" = "deny"
 "~/Library/Caches" = "read"
@@ -93,7 +106,18 @@ glob_scan_max_depth = 8
 "**/*.pem" = "deny"
 "**/*.p12" = "deny"
 "**/*.pfx" = "deny"
+"**/*.secret*" = "deny"
+"**/*.token" = "deny"
+"**/*.token.json" = "deny"
+"**/.netrc" = "deny"
+"**/credentials" = "deny"
+"**/credentials.json" = "deny"
+"**/id_ed25519*" = "deny"
+"**/id_rsa*" = "deny"
 "**/secrets/**" = "deny"
+"**/token" = "deny"
+"**/token.json" = "deny"
+"**/token.txt" = "deny"
 
 [tui]
 notifications = false

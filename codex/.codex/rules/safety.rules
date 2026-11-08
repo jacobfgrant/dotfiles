@@ -6,8 +6,10 @@
 #
 # Patterns match literal argument prefixes, not flags anywhere in a command.
 # Global options (git -C, terraform -chdir=...), reordered flags, other aliases,
-# and commands inside scripts can escape these patterns. A missing match is
-# not an allow rule; normal Codex approval and sandbox checks still apply.
+# and commands inside scripts can escape these patterns. A command with a
+# leading VAR=value assignment is not parsed at all, so nothing here sees it.
+# A missing match is not an allow rule; normal Codex approval and sandbox
+# checks still apply.
 #
 # Principle for discarding changes: common bulk-discard forms are forbidden;
 # every other reset, restore, or checkout invocation prompts, because "undo
@@ -17,6 +19,14 @@
 # Verify with:  codex execpolicy check --pretty --rules <this file> -- <cmd>
 
 ## GIT ##
+
+# A leading -C puts the subcommand out of reach of every pattern below.
+prefix_rule(
+    pattern = ["git", "-C"], decision = "prompt",
+    justification = "Global options hide the subcommand from the other git rules; review the whole command.",
+    match = ["git -C project status", "git -C project reset --hard"],
+    not_match = ["git status"],
+)
 
 # Broad prompt catches reset, restore, and checkout variants the prohibitions
 # below miss, including safe unstaging and path discards without "--". Use
@@ -169,6 +179,24 @@ prefix_rule(
     not_match = ["git stash list", "git stash apply", "git stash pop"],
 )
 prefix_rule(
+    pattern = ["git", ["worktree", "w"], "remove", ["-f", "--force"]],
+    decision = "forbidden",
+    justification = "Forced worktree removal discards uncommitted and untracked work; remove it cleanly or leave it.",
+    match = ["git worktree remove --force ../repo--feature", "git w remove -f ../repo--feature"],
+    not_match = ["git worktree remove ../repo--feature", "git worktree list"],
+)
+prefix_rule(
+    pattern = ["git", "wr", ["-f", "--force"]], decision = "forbidden",
+    justification = "This alias removes a worktree; do not add force.",
+    match = ["git wr -f ../repo--feature", "git wr --force ../repo--feature"],
+    not_match = ["git wr ../repo--feature"],
+)
+prefix_rule(
+    pattern = ["git", "wrf"], decision = "forbidden",
+    justification = "This alias runs git worktree remove --force; preserve the worktree's changes.",
+    match = ["git wrf ../repo--feature"],
+)
+prefix_rule(
     pattern = ["git", "rm"], decision = "prompt",
     justification = "Confirm removal of tracked files or index entries.",
     match = ["git rm example.py", "git rm --cached example.py"],
@@ -176,6 +204,13 @@ prefix_rule(
 
 ## SYSTEM AND FILES ##
 
+# env hides the real command from every other rule here.
+prefix_rule(
+    pattern = ["env"], decision = "prompt",
+    justification = "Review the command env wraps; the other rules cannot see it.",
+    match = ["env AWS_PROFILE=admin aws s3 ls", "env -i git reset --hard"],
+    not_match = ["printenv"],
+)
 prefix_rule(
     pattern = ["sudo"], decision = "forbidden",
     justification = "Keep privileged system changes manual, matching the Claude policy.",
@@ -201,6 +236,22 @@ prefix_rule(
     justification = "Disk erasure is destructive; leave it to the user.",
     match = ["diskutil eraseDisk JHFS+ Example disk2"],
     not_match = ["diskutil list", "diskutil info disk2"],
+)
+prefix_rule(
+    pattern = ["diskutil", "apfs", ["deleteContainer", "deleteVolume", "deleteVolumeGroup",
+                                    "deleteSnapshot", "eraseVolume"]],
+    decision = "forbidden",
+    justification = "APFS deletion is destructive; leave it to the user.",
+    match = ["diskutil apfs deleteVolume disk3s2"],
+    not_match = ["diskutil apfs list"],
+)
+prefix_rule(
+    pattern = ["tmutil", ["delete", "deletelocalsnapshots", "deleteinprogress", "thinlocalsnapshots"]],
+    decision = "forbidden",
+    justification = "Time Machine backups are the recovery path; never delete or thin them.",
+    match = ["tmutil delete /Volumes/Backup/Backups.backupdb/host/2026-01-01-000000",
+             "tmutil thinlocalsnapshots / 10000000000 4"],
+    not_match = ["tmutil listbackups", "tmutil status"],
 )
 prefix_rule(
     pattern = ["rm"], decision = "prompt",
@@ -240,15 +291,20 @@ prefix_rule(
     not_match = ["terraform plan", "terraform validate", "terraform -chdir=infra apply"],
 )
 prefix_rule(
-    pattern = ["terraform", "state", ["rm", "mv", "push", "replace-provider"]],
-    decision = "prompt",
-    justification = "Review the state change, target workspace, and recovery plan.",
+    pattern = ["terraform", "state", ["rm", "mv", "push"]],
+    decision = "forbidden",
+    justification = "State surgery is the user's; hand over the command instead of running it.",
     match = ["terraform state rm example_resource.example", "terraform state push state.json"],
     not_match = ["terraform state list", "terraform state show example_resource.example"],
 )
 prefix_rule(
-    pattern = ["terraform", "workspace", "delete"], decision = "prompt",
-    justification = "Confirm the workspace and preserve any state before deletion.",
+    pattern = ["terraform", "state", "replace-provider"], decision = "prompt",
+    justification = "Review the state change, target workspace, and recovery plan.",
+    match = ["terraform state replace-provider hashicorp/aws registry.example/aws"],
+)
+prefix_rule(
+    pattern = ["terraform", "workspace", "delete"], decision = "forbidden",
+    justification = "Workspace deletion removes state; leave it to the user.",
     match = ["terraform workspace delete example"],
     not_match = ["terraform workspace list"],
 )
