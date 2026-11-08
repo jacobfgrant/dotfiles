@@ -5,6 +5,9 @@
 [credential]
     helper = cache --timeout=3600
 
+[commit]
+    verbose = true
+
 [core]
     editor = vim
     excludesfile = ~/.gitignore_global
@@ -14,6 +17,38 @@
 
 [push]
     autoSetupRemote = true
+
+[pull]
+    rebase = true
+
+[rebase]
+    autoStash = true
+    autoSquash = true
+    # updateRefs = true
+    missingCommitsCheck = error
+
+[merge]
+    conflictStyle = zdiff3
+
+[diff]
+    algorithm = histogram
+    colorMoved = zebra
+
+[help]
+    autocorrect = prompt
+
+[rerere]
+    enabled = true
+    autoUpdate = true
+
+[tag]
+    sort = version:refname
+
+[column]
+    # ui = auto
+
+[log]
+    date = iso
 
 [format]
     pretty = log-standard
@@ -45,7 +80,8 @@
 
     # inspection
     sh = show --stat --cc --summary --patch # show detailed info about commit
-    grep = grep -I                          # grep within tracked files in repo
+    shs = show --stat --summary             # show summary info about commit
+    gr = grep -I                            # grep within tracked files in repo
 
     # diff
     d = diff -c                             # diff files
@@ -113,12 +149,12 @@
 
     # tag
     t = tag             # list or create tags
-    tc = tag --contains	# list tags that contain a given commit
-    td = tag --delete	# deletes specified tag
+    tc = tag --contains # list tags that contain a given commit
+    td = tag --delete   # deletes specified tag
 
     # network (in)
     cl = clone                                  # clones repo
-    p = pull                                    # pulls remote changes (fetch then merge)
+    p = pull                                    # pulls remote changes (fetch then rebase)
     f = fetch --tags                            # fetches remote tags
     ff = fetch --force --prune --tags           # fetches remote tags and cleans up remote branches
     fa = fetch --all --tags                     # fetches all remote tags
@@ -127,6 +163,7 @@
     # network (out)
     pu = push                       # push local changes to remote
     puf = push --force-with-lease   # force push only if no changes to remote
+    put = push --follow-tags        # push, including annotated tags on the pushed commits
 
     # submodule
     sub = submodule                             # git submodules command
@@ -137,7 +174,7 @@
     ma = merge --abort                                                                              # abort attempted merge
     mc = merge --continue                                                                           # continue merge after all conflicts resolved
     mff = merge --ff-only                                                                           # only merge if fast-forward merge is available
-    mnc = "!f() { git merge --no-commit --no-ff \"$@\"; EC=$?; git merge --abort; exit $EC; }; f"   # tests if fast-forward merge is possible without making a commit/merge
+    mnc = "!f() { git rev-parse -q --verify \"$1^{commit}\" >/dev/null || { echo \"$1: no such branch\" >&2; return 2; }; out=$(git merge-tree --write-tree --name-only --no-messages HEAD \"$1\"); rc=$?; case $rc in 0) echo \"$1: merges cleanly\";; 1) echo \"$1: would conflict in\"; echo \"$out\" | sed 1d;; esac; return $rc; }; f"  # check whether merging a branch would conflict
 
     # rebase
     r = rebase                          # rebase current branch onto target branch
