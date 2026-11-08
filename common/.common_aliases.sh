@@ -39,6 +39,12 @@ else
     export GOPATH="$HOME/.go"
 fi
 
+# go install puts binaries here
+if [ -d "$GOPATH/bin" ]
+then
+    export PATH="$PATH:$GOPATH/bin"
+fi
+
 
 ## HOUSEKEEPING ##
 
