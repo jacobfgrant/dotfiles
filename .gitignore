@@ -5,3 +5,9 @@
 # Our global .gitignore has ".claude/" which would exclude this stow source
 # entirely; re-include the directory here.
 !claude/.claude/
+
+# Codex
+
+# The global .gitignore ignores bin/ directories; re-include the
+# codex-delegate source.
+!codex/.local/bin/
