@@ -76,6 +76,20 @@ fi
 
 ## ZSH CONFIGURATION ##
 
+# History #
+
+# macOS's /etc/zshrc caps SAVEHIST at 1000; match bash's 20000
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=20000
+SAVEHIST=20000
+
+setopt EXTENDED_HISTORY         # record timestamp and duration per entry
+setopt INC_APPEND_HISTORY       # write each command as it runs, not at exit
+setopt HIST_IGNORE_ALL_DUPS     # drop the older copy of a repeated command
+setopt HIST_IGNORE_SPACE        # a leading space keeps a command out of history
+setopt HIST_REDUCE_BLANKS
+
+
 # ZSH Prompt #
 
 PROMPT='%(?.%F{10}⏺.%F{9}⏺)%f %2~ $ '

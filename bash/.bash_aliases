@@ -15,8 +15,13 @@
 
 ## BASH CONFIGURATION ##
 
+# History #
+
 HISTSIZE=20000
 HISTFILESIZE=20000
+HISTCONTROL=ignoreboth:erasedups    # skip duplicates and space-prefixed commands
+HISTTIMEFORMAT='%F %T '             # record a timestamp per entry
+shopt -s histappend                 # append to the history file instead of overwriting it
 
 
 ## TOOL COMPLETION ##
