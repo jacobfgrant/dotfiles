@@ -8,13 +8,19 @@ When I ask a question, I'm asking a question, not prompting you to start working
 
 Suggest switching models only when the task specifically warrants it, explain why, and let me choose.
 
+- Prefer a few small, readable commands over a long script. If a job needs a script, keep it short enough to read in the approval prompt; the command rules can't see inside scripts.
+- If implementation shows the agreed approach won't work, stop and say so. Don't substitute a different design.
+- Never run anything that prints a whole environment or `.env` file (`printenv`, `docker compose config`, `env` inside a container). Check a variable by name.
+- Use explicit command names for infrastructure and destructive git operations, with the subcommand first. Global options such as `git -C` and `terraform -chdir=` sit between the command and the subcommand and get past the permission rules.
+
 
 ## Languages and Tools
 
 - Python is my default language; Terraform is my infrastructure-as-code tool.
 - AWS is my primary cloud; I also use SAM, Docker, and Homebrew on macOS.
 - Prefer POSIX-compatible shell scripts where practical. Zsh-specific features are fine for personal tooling and interactive configuration.
-- Install project dependencies freely in virtualenvs or equivalent isolated environments during authorized implementation. Ask before global installs.
+- Follow a repo's existing Python tooling; for new projects, use uv (`uv add`, `uv run`; `uvx` for one-off tools).
+- Install project dependencies into project-local environments during authorized implementation. The sandbox has no network, so an install needs an approval; ask for it rather than working around it. Ask before global installs.
 - No Makefiles.
 
 
@@ -42,6 +48,7 @@ I'm building testing habits. For non-trivial code:
 - Suggest a testing approach alongside the implementation.
 - Write tests as we go, not as an afterthought.
 - Keep tests readable; they're documentation too.
+- Tests should cover the behavior, not the exact implementation. Each test should earn its keep.
 - Run relevant checks before finishing.
 
 
@@ -56,23 +63,33 @@ I'm building testing habits. For non-trivial code:
 - Commit subjects: imperative mood, capitalized, no trailing period, at most 50 characters. Test: "If applied, this commit will [subject]". Separate the body with a blank line and wrap it at 72 characters.
 - Commit bodies explain what and why, not a narration of the implementation.
 - Don't add AI attribution or Co-Authored-By trailers.
-- Never force-push, hard-reset, clean untracked files, discard existing changes, drop stashes, or force-delete branches. These restrictions also apply to aliases such as git puf and git reh.
-- Ask before pushing unless the current task explicitly authorizes it.
-- Use git switch for branch work and git restore for files. Any git checkout invocation prompts for review, so reserve it for cases the other two can't express.
+- Never force-push, hard-reset, clean untracked files, drop stashes, force-delete branches, force-remove worktrees, or discard changes you didn't make. Reverting your own change to a file is fine with approval. These restrictions also apply to aliases such as git puf, git reh, and git wrf.
+- Pushing, pull requests, and merging are mine. Don't do them unless I ask.
+- Use git switch for branch work. Reset, restore, and checkout all prompt for review, so reserve them for when I ask to undo something.
 
 
 ## AWS
 
-- Every aws call requires approval. For inspection, write `aws --profile read` or `aws --profile view` with the flag first so the intent is obvious.
+- The sandbox has no network and denies `~/.aws`, and an escalation keeps the read denial, so `aws` cannot run here. If a task needs AWS data, give me the command (`aws --profile read ...`, flag first) and I'll run it and share the output.
 - Never work around that. If something needs write access, stop and tell me.
-- Only when I explicitly ask for a write: `aws --profile admin ...`, for that command only. Verify the account and role first.
+- A plan isn't permission to apply, deploy, or delete. Hand me the command.
 
 
 ## Infrastructure and Sensitive Data
 
 - Plans and inspection do not authorize applying, deploying, destroying, or deleting infrastructure. Obtain explicit authorization for those actions.
 - Never use sudo; hand me the command instead.
-- Ask before deleting files or making recursive permission changes.
-- Don't inspect private keys, credential stores, tokens, or secrets. Ask before reading project .env files. Use redacted examples when possible.
+- Ask before making recursive permission changes.
+- Don't inspect private keys, credential stores, tokens, or secrets. The sandbox blocks `.env` files; don't ask for an escalation to read one, ask me for the variable you need. Use redacted examples when possible.
 - If a tool needs credentials to authenticate, use its normal authentication flow without printing or reading credential contents into the conversation.
-- Use explicit command names for infrastructure and destructive Git operations so the action and any permission rule are clear.
+
+
+## Deleting Files
+
+Deletes are rare and deliberate. Each one should be explainable in a sentence, and most work shouldn't need any.
+
+- Temp files go in a `mktemp -d` directory, never in the repo. In codex-delegate runs, `TMPDIR` is a per-run directory the wrapper removes afterward; don't clean it up yourself.
+- For test fixtures, use self-cleaning temp dirs (pytest's `tmp_path`, `tempfile.TemporaryDirectory`) instead of creating and deleting directories by hand.
+- Spell out literal paths in delete commands: no variables, `~`, or broad globs. The approval prompt only helps if it shows the real target.
+- Deleting from inside a script (`shutil.rmtree`, `os.remove`, `find -delete`) is still deleting and needs the same approval; only a leading `rm` prompts on its own.
+- If a delete touches anything unexpected, stop and tell me. Don't assess your own damage and decide it was fine.
