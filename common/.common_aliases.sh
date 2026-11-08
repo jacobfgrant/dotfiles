@@ -88,8 +88,6 @@ alias lla="ls -lahF"
 
 # Grep with color
 alias grep="grep --color=auto"
-alias fgrep="fgrep --color=auto"
-alias egrep="egrep --color=auto"
 
 
 # Make "open" portable
@@ -113,12 +111,6 @@ alias cdes="cd $HOME/Desktop"
 alias cdoc="cd $HOME/Documents"
 alias cdot="cd $HOME/.dotfiles"
 alias cdow="cd $HOME/Downloads"
-
-
-# Git #
-
-alias gpo="git push origin"
-alias gum="git checkout master && git pull upstream master"
 
 
 ## PACKAGE MANAGERS ##
@@ -164,13 +156,6 @@ fi
 if ! command -v python &> /dev/null
 then
     alias python="python3"
-fi
-
-
-# pip -> pip3
-if ! command -v pip &> /dev/null
-then
-    alias pip="pip3"
 fi
 
 
