@@ -55,6 +55,14 @@ set cursorline
 " Enable file type detection
 filetype plugin indent on
 
+" Spell check prose, not code (z= to correct, zg to add a word)
+if has('spell')
+  augroup spellcheck
+    autocmd!
+    autocmd FileType markdown,gitcommit,text setlocal spell spelllang=en_us
+  augroup END
+endif
+
 " Clear search highlighting with Ctrl+Space
 nnoremap <C-Space> :nohlsearch<CR>
 
