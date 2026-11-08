@@ -1,0 +1,113 @@
+# Codex configuration and preferences
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+approval_policy = "on-request"
+approvals_reviewer = "user"
+
+# Permission profiles replace sandbox_mode / sandbox_workspace_write.
+default_permissions = "development"
+
+[permissions.development]
+description = "Workspace edits, no network, credential stores and secret files denied"
+extends = ":workspace"
+
+[permissions.development.network]
+enabled = false
+
+# Both profiles deny the same paths; only `extends` differs. ~/Library is
+# denied except the package caches (pip, uv) that tooling reads; a child read
+# entry overrides a denied parent for regular paths. Only the docker auth file
+# is denied so the CLI itself keeps working. ~/.codex stays readable because
+# Codex re-executes its own binary from ~/.codex/packages inside the sandbox
+# to load AGENTS.md; only its credential and transcript paths are denied.
+[permissions.development.filesystem]
+"~/.ssh" = "deny"
+"~/.aws" = "deny"
+"~/.gnupg" = "deny"
+"~/.kube" = "deny"
+"~/.config/gh" = "deny"
+"~/.config/gcloud" = "deny"
+"~/.netrc" = "deny"
+"~/.npmrc" = "deny"
+"~/.pypirc" = "deny"
+"~/.terraform.d" = "deny"
+"~/.codex/auth.json" = "deny"
+"~/.codex/sessions" = "deny"
+"~/.codex/history.jsonl" = "deny"
+"~/.claude" = "deny"
+"~/.docker/config.json" = "deny"
+"~/Library" = "deny"
+"~/Library/Caches" = "read"
+# Bound recursive glob expansion on Linux and Windows.
+glob_scan_max_depth = 8
+
+[permissions.development.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.key" = "deny"
+"**/*.pem" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/secrets/**" = "deny"
+
+# Used by codex-delegate for review, adversarial review, and consult runs.
+# Reads are "home minus credential stores" rather than strictly workspace-only:
+# a blanket "~" = "deny" also blocks the ~/.gitconfig symlink, and a file-level
+# read entry does not override a denied parent for symlinks, so git breaks.
+[permissions.review]
+description = "Read-only, no network, credential stores and secret files denied"
+extends = ":read-only"
+
+[permissions.review.network]
+enabled = false
+
+[permissions.review.filesystem]
+"~/.ssh" = "deny"
+"~/.aws" = "deny"
+"~/.gnupg" = "deny"
+"~/.kube" = "deny"
+"~/.config/gh" = "deny"
+"~/.config/gcloud" = "deny"
+"~/.netrc" = "deny"
+"~/.npmrc" = "deny"
+"~/.pypirc" = "deny"
+"~/.terraform.d" = "deny"
+"~/.codex/auth.json" = "deny"
+"~/.codex/sessions" = "deny"
+"~/.codex/history.jsonl" = "deny"
+"~/.claude" = "deny"
+"~/.docker/config.json" = "deny"
+"~/Library" = "deny"
+"~/Library/Caches" = "read"
+# codex-delegate gives each read-only run a temp directory here so tests can run.
+"~/.cache/codex-delegate/scratch" = "write"
+# Bound recursive glob expansion on Linux and Windows.
+glob_scan_max_depth = 8
+
+[permissions.review.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.key" = "deny"
+"**/*.pem" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/secrets/**" = "deny"
+
+[tui]
+notifications = false
+screen_reader_detection_done = true
+
+[projects."/Users/jacobfgrant/.dotfiles"]
+trust_level = "trusted"
+
+[projects."/home/jfgrant/.dotfiles"]
+trust_level = "trusted"
+
+# Trusted project directories are below. Only trusted directories load their
+# own .codex/ config and rules; `codex exec` does not add entries, but
+# interactive `codex` can.
+# 
+# Drop entries for throwaway paths and never commit [projects] hunks alongside
+# unrelated work.
