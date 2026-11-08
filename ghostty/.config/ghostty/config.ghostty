@@ -1,0 +1,11 @@
+### Ghostty Config ###
+
+# Disable terminal bell
+bell-features = no-system,no-audio,no-attention,no-title,no-border
+
+keybind = shift+enter=text:\n
+
+quit-after-last-window-closed = true
+
+# Enable ghostty terminfo
+shell-integration-features = ssh-terminfo
