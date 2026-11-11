@@ -39,39 +39,37 @@ fi
 ## TOOL COMPLETION ##
 
 # Initialize the completion system once, before any tool hooks into it
-autoload -Uz compinit
+autoload -Uz compinit bashcompinit
 compinit
+bashcompinit
+
+zstyle ':completion:*' menu select
 
 
 # AWS CLI #
 
-if (( $+commands[brew] && $+commands[aws] ))
-then
-    AWS_ZSH_COMPLETER="$(brew --prefix)/share/zsh/site-functions/aws_zsh_completer.sh"
-
-    [[ -f "$AWS_ZSH_COMPLETER" ]] && source "$AWS_ZSH_COMPLETER"
-fi
+# Homebrew's lazy _aws stub wastes the first Tab of every shell; register directly.
+(( $+commands[aws_completer] )) && complete -C aws_completer aws
 
 
 # Google Cloud CLI #
 
-if command -v brew >/dev/null 2>&1 && command -v gcloud >/dev/null 2>&1
+# Homebrew links this file without a #compdef tag, so compinit skips it.
+if [[ -f /opt/homebrew/share/google-cloud-sdk/completion.zsh.inc ]]
 then
-    GCLOUD_PATH="$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
-    GCLOUD_COMPLETION="$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
-
-    [[ -f "$GCLOUD_PATH" ]] && source "$GCLOUD_PATH"
-    [[ -f "$GCLOUD_COMPLETION" ]] && source "$GCLOUD_COMPLETION"
+    source /opt/homebrew/share/google-cloud-sdk/completion.zsh.inc
 fi
+
+
+# Docker #
+
+# Docker Desktop installs no zsh completion; the CLI generates its own.
+(( $+commands[docker] )) && source <(docker completion zsh)
 
 
 # Terragrunt #
 
-if command -v terragrunt >/dev/null 2>&1
-then
-    autoload -U +X bashcompinit && bashcompinit
-    complete -C "$(command -v terragrunt)" terragrunt
-fi
+(( $+commands[terragrunt] )) && complete -o nospace -C "$commands[terragrunt]" terragrunt
 
 
 ## ZSH CONFIGURATION ##

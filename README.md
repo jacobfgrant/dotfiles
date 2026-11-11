@@ -90,7 +90,7 @@
 
 - `.zshrc` – ZSH configuration and prompt setup
   - Sources `.common_aliases.sh`
-  - Tool completion (AWS CLI, Google Cloud CLI, Terragrunt)
+  - Tool completion (AWS CLI, Google Cloud CLI, Docker, Terragrunt)
   - History settings matching bash
   - Custom prompt with git integration
 
