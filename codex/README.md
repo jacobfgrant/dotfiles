@@ -49,7 +49,7 @@ Read-only runs can run tests. Each gets a fresh directory under `~/.cache/codex-
 `doctor` checks the install, Codex's own doctor report, the model catalog, the flags the wrapper relies on, the profiles in `config.toml`, and runs sandbox canaries for both profiles. No model calls. Run it after a Codex update; run `/codex-audit` in Claude Code when it fails or a notable release lands. Unit tests:
 
 ```sh
-python3 -m pytest codex/tests
+uvx pytest codex/tests
 ```
 
 The Claude side is the `codex-delegate` skill, which holds the contract and the delegation policy. The official `codex-plugin-cc` was rejected because it starts every thread with an explicit sandbox value, which discards the permission profile.

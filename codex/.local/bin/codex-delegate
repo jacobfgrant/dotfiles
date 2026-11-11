@@ -3,11 +3,12 @@
 
 Each subcommand maps an intent to a permission profile from ~/.codex/config.toml,
 a model, an effort, and a fixed set of `codex exec` flags. Nothing can pass
---sandbox or a bypass flag through it, and a project with its own .codex/
-configuration is refused. Read-only runs get a per-run scratch directory for temp
-files so tests can run; it is removed afterwards. Then the wrapper reads the Codex
-session file and reports the model, effort, and profile that actually applied. `show` does that for any
-session; `doctor` checks the install and sandbox without calling a model.
+--sandbox or a bypass flag through it, and a trusted project whose own .codex/
+configuration could change the sandbox is refused. Read-only runs get a per-run
+scratch directory for temp files so tests can run; it is removed afterwards. Then
+the wrapper reads the Codex session file and reports the model, effort, and
+profile that actually applied. `show` does that for any session; `doctor` checks
+the install and sandbox without calling a model.
 """
 
 from __future__ import annotations
