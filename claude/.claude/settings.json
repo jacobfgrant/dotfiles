@@ -22,7 +22,6 @@
       "Bash(docker inspect *)",
       "Bash(docker ps *)",
       "Bash(echo *)",
-      "Bash(find *)",
       "Bash(gh release view *)",
       "Bash(git add *)",
       "Bash(git blame *)",
