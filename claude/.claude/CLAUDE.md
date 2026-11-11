@@ -33,8 +33,9 @@ When I ask a question, I want an answer and a discussion, not the start of imple
 
 - Explicit over clever
 - Start simple and iterate; don't overengineer
-- Comments explain why, not what, and only when necessary
 - Keep files focused; split them when they get unwieldy
+
+Default to writing no comments. Add one only where a competent engineer would otherwise misread the code or "fix" it into a bug: e.g. a workaround for a specific upstream bug, a non-obvious invariant, a deliberate departure from the obvious approach. A "why" that restates the code's evident purpose doesn't qualify. One line where possible. Explaining a change belongs in your reply, never in a comment. Before committing or handing work back, reread the diff and cut any comment you added that fails this test.
 
 
 ## Testing

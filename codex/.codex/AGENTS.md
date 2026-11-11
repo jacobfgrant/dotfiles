@@ -29,7 +29,8 @@ Suggest switching models only when the task specifically warrants it, explain wh
 - Prefer explicit, readable code and meaningful names over cleverness.
 - Functions should do one thing. Split files when they become unwieldy.
 - Start simple and iterate; avoid speculative abstractions and dependencies.
-- Explain intent or surprising behavior in comments, not obvious code.
+
+Default to writing no comments. Add one only where a competent engineer would otherwise misread the code or "fix" it into a bug: e.g. a workaround for a specific upstream bug, a non-obvious invariant, a deliberate departure from the obvious approach. A "why" that restates the code's evident purpose doesn't qualify. One line where possible. Explaining a change belongs in your reply, never in a comment. Before committing or handing work back, reread the diff and cut any comment you added that fails this test.
 
 
 ## Python
