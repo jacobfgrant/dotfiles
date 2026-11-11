@@ -5,16 +5,7 @@ Cross-platform dotfiles for macOS and Linux using GNU Stow for symlink managemen
 
 ## Structure
 
-- `ansible/` - Ansible configuration
-- `aws/` - AWS CLI profiles; `agent-config` is the read-only set for agents
-- `bash/` - Bash-specific aliases and completion
-- `claude/` - Claude Code global configuration (stowed to ~/.claude)
-- `codex/` - Codex global instructions, settings, and command rules
-- `common/` - Shared shell configuration (sourced by bash/zsh)
-- `git/` - Git configuration and global gitignore
-- `vim/` - Vim editor configuration
-- `zsh/` - ZSH-specific configuration and prompts
-- `stow.sh` - GNU Stow deployment script
+`README.md` holds the per-directory inventory; update it when adding, moving, or removing a package.
 
 
 ## Key Principles
