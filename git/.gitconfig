@@ -202,7 +202,7 @@
     rv = revert             # add commit undoing changes in the given commit(s)
     rva = revert --abort    # abort (cancel) revert attempt and return to original state
     rvc = revert --continue # continue revert attempt after resolving conflicts
-    rvq = revert --quit     # quite revert attempt (do not undo changes)
+    rvq = revert --quit     # quit revert attempt (do not undo changes)
 
     # reset
     re = reset          # resets staging area to most recent commit, leaves working directory unchanged
@@ -215,6 +215,6 @@
     who = shortlog --summary --numbered --no-merges                                     # summarizes repo contributors
     whoami = "!echo $(git config --get user.name) '<'$(git config --get user.email)'>'" # show git author/email info
 
-    # show authors and and commit counts
+    # show authors and commit counts
     #    git thanks [<git-log-args>...]
     thanks = "!f() { git log --pretty=tformat:'%aN <%aE>' \"$@\" | sort | uniq -c | sort -rn; }; f"
