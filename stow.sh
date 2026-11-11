@@ -13,7 +13,7 @@
 DOTFILES_DIR=$(dirname "$0")
 
 # Try to locate stow, check /opt/homebrew/bin/stow if not found
-STOW=$(which stow 2>/dev/null)
+STOW=$(command -v stow 2>/dev/null)
 if [ -z "$STOW" ]
 then
     if [ -x "/opt/homebrew/bin/stow" ]
@@ -29,7 +29,7 @@ fi
 cd "$DOTFILES_DIR" || exit
 for dir in */
 do
-    if [ "$dir" != ".git/" ] && [ "$(ls -A "$dir")" ]
+    if [ "$(ls -A "$dir")" ]
     then
         # Link individual files so application data stays outside the repository.
         "$STOW" --no-folding -t "$HOME" -R "${dir%/}"
