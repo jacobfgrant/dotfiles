@@ -243,6 +243,11 @@
       "Read(**/.env.*)"
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh",
+    "refreshInterval": 60
+  },
   "model": "fable",
   "modelSettings": {
     "claude-opus-5-5": {

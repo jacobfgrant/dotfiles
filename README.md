@@ -26,6 +26,7 @@
 
 - `.claude/CLAUDE.md` – Claude Code global conventions and preferences
 - `.claude/settings.json` – Permission rules, model, and environment (pins AWS to the read-only profiles)
+- `.claude/statusline.sh` – Status line: model, directory, context tokens, and a warning as the prompt cache nears expiry
 - `.claude/rules/python.md` – Python conventions, loaded for Python files
 - `.claude/rules/terraform.md` – Terraform conventions, loaded for Terraform files
 - `.claude/skills/codex-delegate/` – Contract for reviews, consults, and delegated work via `codex-delegate`
