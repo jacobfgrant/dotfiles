@@ -115,6 +115,7 @@ override.tf.json
 # Coding agents
 .claude/
 .codex/
+**/.claude/settings.local.json # Automatically added by Claude Code
 
 
 ## Other ##
